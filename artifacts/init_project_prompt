@@ -1,0 +1,33 @@
+I want you to read these projects in github:                                                                 
+
+https://github.com/eshaham/israeli-bank-scrapers                                                         
+https://github.com/daniel-hauser/moneyman                                                                
+
+I want us to work together and write a local application that in the next features, will also have a gui for funds management and transactions tracking from israeli providers --> banks, credit cards etc.
+
+The application will have these characteristics:
+- Work with credentials kept in a secured place - 
+  either we use encryption keys to encrypt/decrypt credentials and save the encrypted values in a safe place, or have them saved in a local db attached to the application that will be used for the time of the application run.
+- Config file that will set which accounts are to be scraped (according to the dependent code mentioned 
+  above) and additional config like credentials locations etc if required
+- The application will allow execution of scraping to the configured accounts (and them only) to fetch 
+  required data (by user configuration of start_time, end_time for parsing specific transactions data)
+- In addition, there should be default graphs that will show in the home page, with statistics of:
+  - Highest expense in the provided time frame
+  - Top 5 recurring payments with columns of: expense name, category, amount (in ILS), 
+  - Trend graph of total expenses per month from start_time to end_time, per day if start_time and end_time  
+    resolve to less than two month time frame
+  - Pie chart that will show expenses categories and size per their payments totals - if required, the  
+    categories can be configured upfront or in the config file, and should group different names and categories fetched from scraping, so they will be summed up and categorized properly for projection.
+- User management to allow access only to specific users by username and password (should also be encrypted 
+  and persisted in local db or first time on login)
+- The application should be very verbose, so the logs should show exactly which actions executed, for system flow and specific calculations like 'scraping from bank X', 'scraping from credit card account Y', 'calculating totals', 'calculating top 5' etc
+
+We will write the service in node like the projects for ease of integration.
+In addition, lastly I want to have a gui (web app or similar) that will be easy for navigating and projecting the mentioned features in a nice high tech and fintech similar dashboards and applications.
+
+Lets outline the steps for this project, make sure to make each step "independent" as much as possible from the others. When writing the application, remember loggings, node best practices, structure and classes formations, abstractions and excellent code architecture, tests and what ever is needed to make maintainable and easy to extend and share with other coders.
+
+Lets build a great application!
+
+
