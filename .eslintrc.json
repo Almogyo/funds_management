@@ -19,6 +19,11 @@
     "@typescript-eslint/explicit-function-return-type": "warn",
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-implicit-any-catch": [
+      "error",
+      { "allowExplicitAny": false }
+    ]
+  },
     "no-console": "warn",
     "prettier/prettier": "error"
   }

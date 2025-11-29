@@ -39,6 +39,8 @@ export interface ScraperResult {
   error?: string;
   duration: number;
   screenshotPath?: string;
+  waitingForOTP?: boolean;
+  otpType?: 'SMS' | 'APP';
 }
 
 export class ScraperService {
@@ -75,9 +77,9 @@ export class ScraperService {
         startDate: options.startDate,
         futureMonthsToScrape: options.futureMonths || 0,
         combineInstallments: options.combineInstallments || false,
-        timeout: options.timeout || 60000,
+        timeout: options.timeout || 120000,
         verbose: false,
-        showBrowser: options.showBrowser || false,
+        showBrowser: options.showBrowser !== undefined ? options.showBrowser : true,
       };
 
       this.logger.scraperLog(`Creating scraper instance`, accountName, {

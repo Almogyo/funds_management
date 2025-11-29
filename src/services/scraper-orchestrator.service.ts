@@ -233,6 +233,8 @@ export class ScraperOrchestratorService {
             newTransactions: savedTransactionsCount,
             duplicatesSkipped: processedTransactions.length - savedTransactionsCount,
           });
+
+          this.accountRepository.updateLastScrapedAt(account.accountId);
         }
 
         job.results.push({

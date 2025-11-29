@@ -57,7 +57,7 @@ export class AnalyticsController {
         return;
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, accountIds: accountIdsParam } = req.query;
 
       if (!startDate || !endDate) {
         res.status(400).json({ error: 'Start date and end date are required' });
@@ -69,8 +69,13 @@ export class AnalyticsController {
         endDate: new Date(endDate as string),
       };
 
-      const accounts = this.accountRepository.findActiveByUserId(userId);
-      const accountIds = accounts.map((a) => a.id);
+      let accountIds: string[];
+      if (accountIdsParam && typeof accountIdsParam === 'string') {
+        accountIds = accountIdsParam.split(',').map((id) => id.trim());
+      } else {
+        const accounts = this.accountRepository.findActiveByUserId(userId);
+        accountIds = accounts.map((a) => a.id);
+      }
 
       const summary = this.analyticsService.calculateSummary(accountIds, dateRange);
 
@@ -128,7 +133,7 @@ export class AnalyticsController {
         return;
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, accountIds: accountIdsParam } = req.query;
 
       if (!startDate || !endDate) {
         res.status(400).json({ error: 'Start date and end date are required' });
@@ -140,8 +145,13 @@ export class AnalyticsController {
         endDate: new Date(endDate as string),
       };
 
-      const accounts = this.accountRepository.findActiveByUserId(userId);
-      const accountIds = accounts.map((a) => a.id);
+      let accountIds: string[];
+      if (accountIdsParam && typeof accountIdsParam === 'string') {
+        accountIds = accountIdsParam.split(',').map((id) => id.trim());
+      } else {
+        const accounts = this.accountRepository.findActiveByUserId(userId);
+        accountIds = accounts.map((a) => a.id);
+      }
 
       const highestExpense = this.analyticsService.calculateHighestExpense(accountIds, dateRange);
 
@@ -205,7 +215,7 @@ export class AnalyticsController {
         return;
       }
 
-      const { startDate, endDate, topN } = req.query;
+      const { startDate, endDate, topN, accountIds: accountIdsParam } = req.query;
 
       if (!startDate || !endDate) {
         res.status(400).json({ error: 'Start date and end date are required' });
@@ -217,8 +227,13 @@ export class AnalyticsController {
         endDate: new Date(endDate as string),
       };
 
-      const accounts = this.accountRepository.findActiveByUserId(userId);
-      const accountIds = accounts.map((a) => a.id);
+      let accountIds: string[];
+      if (accountIdsParam && typeof accountIdsParam === 'string') {
+        accountIds = accountIdsParam.split(',').map(id => id.trim());
+      } else {
+        const accounts = this.accountRepository.findActiveByUserId(userId);
+        accountIds = accounts.map((a) => a.id);
+      }
 
       const top = topN ? parseInt(topN as string, 10) : 5;
       const recurringPayments = this.analyticsService.calculateTopRecurringPayments(
@@ -227,7 +242,7 @@ export class AnalyticsController {
         top
       );
 
-      res.status(200).json(recurringPayments);
+      res.status(200).json({ payments: recurringPayments });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to calculate recurring payments';
       this.logger.error('Recurring payments error', { error: message });
@@ -288,7 +303,7 @@ export class AnalyticsController {
         return;
       }
 
-      const { startDate, endDate, granularity } = req.query;
+      const { startDate, endDate, granularity, accountIds: accountIdsParam } = req.query;
 
       if (!startDate || !endDate) {
         res.status(400).json({ error: 'Start date and end date are required' });
@@ -300,13 +315,18 @@ export class AnalyticsController {
         endDate: new Date(endDate as string),
       };
 
-      const accounts = this.accountRepository.findActiveByUserId(userId);
-      const accountIds = accounts.map((a) => a.id);
+      let accountIds: string[];
+      if (accountIdsParam && typeof accountIdsParam === 'string') {
+        accountIds = accountIdsParam.split(',').map(id => id.trim());
+      } else {
+        const accounts = this.accountRepository.findActiveByUserId(userId);
+        accountIds = accounts.map((a) => a.id);
+      }
 
       const gran = (granularity as 'daily' | 'monthly') || 'monthly';
       const trends = this.analyticsService.calculateExpenseTrends(accountIds, dateRange, gran);
 
-      res.status(200).json(trends);
+      res.status(200).json({ trends });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to calculate trends';
       this.logger.error('Trends error', { error: message });
@@ -360,7 +380,7 @@ export class AnalyticsController {
         return;
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, accountIds: accountIdsParam } = req.query;
 
       if (!startDate || !endDate) {
         res.status(400).json({ error: 'Start date and end date are required' });
@@ -372,12 +392,17 @@ export class AnalyticsController {
         endDate: new Date(endDate as string),
       };
 
-      const accounts = this.accountRepository.findActiveByUserId(userId);
-      const accountIds = accounts.map((a) => a.id);
+      let accountIds: string[];
+      if (accountIdsParam && typeof accountIdsParam === 'string') {
+        accountIds = accountIdsParam.split(',').map(id => id.trim());
+      } else {
+        const accounts = this.accountRepository.findActiveByUserId(userId);
+        accountIds = accounts.map((a) => a.id);
+      }
 
       const distribution = this.analyticsService.calculateCategoryDistribution(accountIds, dateRange);
 
-      res.status(200).json(distribution);
+      res.status(200).json({ categories: distribution });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to calculate category distribution';
       this.logger.error('Category distribution error', { error: message });

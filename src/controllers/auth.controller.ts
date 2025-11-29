@@ -44,15 +44,14 @@ export class AuthController {
         return;
       }
 
-      const user = await this.authService.register(username, password);
+      const result = await this.authService.register(username, password);
 
       res.status(201).json({
         message: 'User registered successfully',
-        user: {
-          id: user.id,
-          username: user.username,
-          createdAt: user.createdAt,
-        },
+        sessionId: result.session.sessionId,
+        userId: result.user.id,
+        username: result.user.username,
+        expiresAt: result.session.expiresAt,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Registration failed';
@@ -102,6 +101,8 @@ export class AuthController {
       res.status(200).json({
         message: 'Login successful',
         sessionId: session.sessionId,
+        userId: session.userId,
+        username: session.username,
         expiresAt: session.expiresAt,
       });
     } catch (error) {

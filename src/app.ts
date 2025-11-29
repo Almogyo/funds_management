@@ -20,12 +20,14 @@ import { CredentialService } from './services/credential.service';
 import { AnalyticsService } from './services/analytics.service';
 import { ScraperService } from './services/scraper.service';
 import { ScraperOrchestratorService } from './services/scraper-orchestrator.service';
+import { LogReaderService } from './services/log-reader.service';
 
 import { AuthController } from './controllers/auth.controller';
 import { AccountController } from './controllers/account.controller';
 import { TransactionController } from './controllers/transaction.controller';
 import { AnalyticsController } from './controllers/analytics.controller';
 import { ScraperController } from './controllers/scraper.controller';
+import { LogsController } from './controllers/logs.controller';
 
 import { createAuthMiddleware } from './middleware/auth.middleware';
 
@@ -115,6 +117,8 @@ export class App {
     );
     const analyticsController = new AnalyticsController(analyticsService, accountRepo, this.logger);
     const scraperController = new ScraperController(scraperOrchestrator, this.logger);
+    const logReaderService = new LogReaderService(this.config.logging.filePath);
+    const logsController = new LogsController(logReaderService, this.logger);
 
     const authMiddleware = createAuthMiddleware(authService, this.logger);
 
@@ -166,6 +170,9 @@ export class App {
     );
 
     this.app.post('/api/scrape', authMiddleware, scraperController.scrapeAccounts);
+
+    this.app.get('/api/logs', authMiddleware, logsController.getLogs);
+    this.app.get('/api/logs/stats', authMiddleware, logsController.getLogStats);
 
     this.app.use((_req: Request, res: Response) => {
       res.status(404).json({ error: 'Route not found' });

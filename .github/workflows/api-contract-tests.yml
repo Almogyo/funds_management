@@ -1,0 +1,68 @@
+name: API Contract Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: cd client && npm ci
+
+      - name: Build TypeScript (backend)
+        run: npm run build
+
+      - name: Start backend server
+        run: |
+          npm run dev &
+          echo "Waiting for backend to start..."
+          npx wait-on http://localhost:3000/api/health --timeout 30000
+        env:
+          NODE_ENV: test
+
+      - name: Create test user and get session
+        id: auth
+        run: |
+          # Register a test user
+          SESSION_RESPONSE=$(curl -X POST http://localhost:3000/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"username":"test_user_'$(date +%s)'","password":"testpass123"}')
+          
+          SESSION_ID=$(echo $SESSION_RESPONSE | jq -r '.sessionId')
+          echo "TEST_SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
+          echo "Session ID obtained: ${SESSION_ID:0:10}..."
+
+      - name: Run contract tests
+        run: cd client && npm run test:contract
+        env:
+          TEST_SESSION_ID: ${{ env.TEST_SESSION_ID }}
+          VITE_API_URL: http://localhost:3000
+
+      - name: Run backend tests
+        run: npm test
+
+# Understand if necessary
+#      - name: Upload test results
+#        if: always()
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: test-results
+#          path: |
+#            coverage/
+#            client/coverage/

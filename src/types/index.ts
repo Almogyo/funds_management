@@ -25,8 +25,10 @@ export interface Account {
   companyId: string;
   alias: string;
   active: boolean;
+  accountType: 'bank' | 'credit';
   createdAt: Date;
   updatedAt: Date;
+  lastScrapedAt?: Date;
 }
 
 export interface Transaction {

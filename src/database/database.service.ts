@@ -29,6 +29,7 @@ export class DatabaseService {
 
   private initialize(): void {
     this.createTables();
+    this.runMigrations();
   }
 
   private createTables(): void {
@@ -151,6 +152,23 @@ export class DatabaseService {
   public backup(backupPath: string): void {
     this.ensureDirectoryExists(backupPath);
     this.db.backup(backupPath);
+  }
+
+  private runMigrations(): void {
+    const columns = this.db.pragma("table_info('accounts')") as any[];
+    const hasAccountType = columns.some((col) => col.name === 'account_type');
+
+    if (!hasAccountType) {
+      this.db.exec(`
+        ALTER TABLE accounts ADD COLUMN account_type TEXT DEFAULT 'bank';
+        
+        UPDATE accounts SET account_type = 'credit' 
+        WHERE company_id IN ('visaCal', 'max', 'isracard', 'amex');
+        
+        UPDATE accounts SET account_type = 'bank' 
+        WHERE company_id NOT IN ('visaCal', 'max', 'isracard', 'amex');
+      `);
+    }
   }
 
   public healthCheck(): boolean {

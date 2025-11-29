@@ -1,0 +1,25 @@
+Lets outline the requirements again:                                                                                                                   
+   - A login page for users - that will accept a username and password for login, or sign up if its their first time                                      
+   - For the design of the funds management app:                                                                                                          
+     The design should be similar to high tech fintech dashboards, like RiseUp or Moneytor.                                                               
+     - The landing page after the login will be the 'Home' tab (from the left side panel) that will show the following charts:                            
+       - Upper part block: Net Income card, cash flow card (representing income minus payments of the provided timeline), and on the right side, the
+         filters for the time frame (lets have both Quick like: last month, last 3 month, last 6 month and last year, and an exact date selection with start
+         and end) We should set a maximum one year on the timeframe as this is the max allowed data pull of the scraping providers.
+       - Main middle part block: Dashboards of - Pie chart of the categories totals from total transactions, trend graph of totals per month / day        
+         according to the selected timeframe, and the top 5 recurring payments table with name, category and amount columns (if no recurring, meaning same payment style every month,
+         not installments, we will not show anything)
+     - There will be three tabs on the left side panel - Home, Accounts and Logs                                                                          
+       - Home - as described above                                                                                                                        
+       - Accounts - A table showing the configured accounts that the user configured, and a button to Add new account. For each row we should be able to  
+                    delete that account with another user notification for if he is sure he wants to delete this account. In addition there should be an edit option
+                    that will allow editing the name, credentails etc for the specific account. Banks and credit cards accounts should have a different icon that will
+                    resemble which account type it is. So if needed to add to the Account interface that property lets do it
+       - Logs - A window showing application logging that will allow troubleshooting and understandings. We should allow persistent of logs for up to 3   
+                month time
+                                                                                                                                                          
+Use MUI and best practice React and Node components so it will be easy to enhance and be modern with UI components.
+Build strong UI architecture that will allow separate loading for components IF NEEDED, states that makes sense and separate files per domain (like
+the home page, accounts etc)
+                                                                                                                                                          
+Show me you are a professional Frontend engineer just like you did for the Backend

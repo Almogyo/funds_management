@@ -4,7 +4,7 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Israeli Funds Management API',
+      title: 'Funds Management API',
       version: '1.0.0',
       description: 'API for managing Israeli bank accounts, scraping transactions, and analyzing finances',
       contact: {
@@ -107,6 +107,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Transactions', description: 'Transaction queries and updates' },
       { name: 'Analytics', description: 'Financial analytics and statistics' },
       { name: 'Scraping', description: 'Bank scraping operations' },
+      { name: 'Logs', description: 'Application logs and monitoring' },
     ],
   },
   apis: ['./src/controllers/*.ts'],

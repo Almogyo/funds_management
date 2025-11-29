@@ -41,6 +41,7 @@ export const SecurityConfigSchema = z.object({
   jwtExpiration: z.string().default('24h'),
   refreshTokenExpiration: z.string().default('7d'),
   encryptionKey: z.string().min(32, 'Encryption key must be at least 32 characters'),
+  sessionSecret: z.string().min(32, 'Session secret must be at least 32 characters').optional(),
   rateLimitWindowMs: z.number().int().positive().default(900000),
   rateLimitMaxRequests: z.number().int().positive().default(100),
 });

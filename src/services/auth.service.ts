@@ -22,7 +22,7 @@ export class AuthService {
     private userRepository: UserRepository
   ) {}
 
-  async register(username: string, password: string): Promise<User> {
+  async register(username: string, password: string): Promise<{ user: User; session: Session }> {
     this.logger.securityLog('User registration attempt', username);
 
     const existingUser = this.userRepository.findByUsername(username);
@@ -38,11 +38,14 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, this.SALT_ROUNDS);
     const user = this.userRepository.create(username, passwordHash);
 
+    const session = this.createSession(user);
+
     this.logger.securityLog('User registered successfully', username, {
       userId: user.id,
+      sessionId: session.sessionId,
     });
 
-    return user;
+    return { user, session };
   }
 
   async login(username: string, password: string): Promise<Session> {

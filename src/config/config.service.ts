@@ -1,12 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import { AppConfig, AppConfigSchema } from './config.schema';
+import { KeyGenerator } from '../utils/key-generator';
 
 export class ConfigService {
   private config: AppConfig;
   private configPath: string;
+  private keyGenerator: KeyGenerator;
 
   constructor(configPath?: string) {
+    this.keyGenerator = new KeyGenerator();
     this.configPath = configPath || this.getDefaultConfigPath();
     this.config = this.loadConfig();
   }
@@ -42,6 +45,8 @@ export class ConfigService {
   }
 
   private mergeWithEnvironment(fileConfig: Partial<AppConfig>): Partial<AppConfig> {
+    const generatedKeys = this.keyGenerator.ensureKeysExist();
+    
     const merged: Partial<AppConfig> = {
       ...fileConfig,
       server: {
@@ -57,11 +62,12 @@ export class ConfigService {
       } as any,
       security: {
         ...fileConfig.security,
-        jwtSecret: process.env.JWT_SECRET || fileConfig.security?.jwtSecret || '',
+        jwtSecret: process.env.JWT_SECRET || fileConfig.security?.jwtSecret || generatedKeys.jwtSecret,
         jwtExpiration: process.env.JWT_EXPIRATION || fileConfig.security?.jwtExpiration,
         refreshTokenExpiration:
           process.env.REFRESH_TOKEN_EXPIRATION || fileConfig.security?.refreshTokenExpiration,
-        encryptionKey: process.env.ENCRYPTION_KEY || fileConfig.security?.encryptionKey || '',
+        encryptionKey: process.env.ENCRYPTION_KEY || fileConfig.security?.encryptionKey || generatedKeys.encryptionKey,
+        sessionSecret: process.env.SESSION_SECRET || generatedKeys.sessionSecret,
         rateLimitWindowMs: process.env.RATE_LIMIT_WINDOW_MS
           ? parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10)
           : fileConfig.security?.rateLimitWindowMs,

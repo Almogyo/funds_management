@@ -252,27 +252,41 @@ export class AnalyticsService {
 
     const startTime = Date.now();
 
-    const daysDiff = Math.ceil(
-      (dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const granularity = daysDiff <= 60 ? 'daily' : 'monthly';
+    const transactions = this.transactionRepository.findWithFilters({
+      accountIds,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      status: 'completed',
+    });
+
+    const totalIncome = transactions
+      .filter((t) => t.amount > 0)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpenses = transactions
+      .filter((t) => t.amount < 0)
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const netIncome = totalIncome - totalExpenses;
 
     const summary = {
-      dateRange,
-      highestExpense: this.calculateHighestExpense(accountIds, dateRange),
-      topRecurringPayments: this.calculateTopRecurringPayments(accountIds, dateRange, 5),
-      trends: this.calculateExpenseTrends(accountIds, dateRange, granularity),
-      categoryDistribution: this.calculateCategoryDistribution(accountIds, dateRange),
+      totalIncome,
+      totalExpenses,
+      netIncome,
+      transactionCount: transactions.length,
+      accountCount: accountIds.length,
+      startDate: dateRange.startDate.toISOString(),
+      endDate: dateRange.endDate.toISOString(),
     };
 
     const duration = Date.now() - startTime;
 
     this.logger.calculationLog('Analytics summary completed', {
       duration: `${duration}ms`,
-      hasHighestExpense: summary.highestExpense !== null,
-      recurringPaymentsCount: summary.topRecurringPayments.length,
-      trendsCount: summary.trends.length,
-      categoriesCount: summary.categoryDistribution.length,
+      totalIncome,
+      totalExpenses,
+      netIncome,
+      transactionCount: transactions.length,
     });
 
     return summary;
