@@ -1,0 +1,66 @@
+{
+  "server": {
+    "port": 3000,
+    "host": "localhost",
+    "env": "development"
+  },
+  "database": {
+    "path": "./data/funds_management.db",
+    "enableWAL": true,
+    "enableForeignKeys": true
+  },
+  "security": {
+    "jwtSecret": "your-super-secret-jwt-key-change-this-in-production-minimum-32-chars",
+    "jwtExpiration": "24h",
+    "refreshTokenExpiration": "7d",
+    "encryptionKey": "your-master-encryption-key-minimum-32-characters-long-change-in-prod",
+    "rateLimitWindowMs": 900000,
+    "rateLimitMaxRequests": 100
+  },
+  "logging": {
+    "level": "info",
+    "filePath": "./logs",
+    "console": true,
+    "file": true
+  },
+  "scraping": {
+    "daysBack": 30,
+    "futureMonths": 0,
+    "maxParallelScrapers": 2,
+    "timeout": 60000,
+    "combineInstallments": false,
+    "showBrowser": false,
+    "screenshotOnError": true
+  },
+  "accounts": [],
+  "categories": [
+    {
+      "name": "Food & Dining",
+      "keywords": ["רמי לוי", "שופרסל", "ויקטורי", "מסעדה", "קפה", "restaurant", "cafe"]
+    },
+    {
+      "name": "Transportation",
+      "keywords": ["דלק", "סונול", "פז", "דור אלון", "תחבורה", "gas", "fuel", "parking"]
+    },
+    {
+      "name": "Shopping",
+      "keywords": ["זארה", "h&m", "fox", "קניון", "mall", "clothing"]
+    },
+    {
+      "name": "Bills & Utilities",
+      "keywords": ["חשמל", "מים", "ארנונה", "גז", "electricity", "water", "internet", "cellular"]
+    },
+    {
+      "name": "Healthcare",
+      "keywords": ["קופת חולים", "בית מרקחת", "pharmacy", "doctor", "clinic"]
+    },
+    {
+      "name": "Entertainment",
+      "keywords": ["קולנוע", "נטפליקס", "ספוטיפיי", "netflix", "spotify", "cinema", "theater"]
+    },
+    {
+      "name": "Subscriptions",
+      "keywords": ["מנוי", "subscription", "membership"]
+    }
+  ]
+}
