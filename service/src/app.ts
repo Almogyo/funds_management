@@ -145,14 +145,27 @@ export class App {
 
     this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-    this.app.get('/health', (_req: Request, res: Response) => {
+    // Health check endpoint - supports both GET and HEAD requests
+    const healthHandler = (_req: Request, res: Response) => {
       const dbHealthy = this.dbService.healthCheck();
-      res.status(dbHealthy ? 200 : 503).json({
-        status: dbHealthy ? 'healthy' : 'unhealthy',
-        database: dbHealthy ? 'connected' : 'disconnected',
-        timestamp: new Date().toISOString(),
-      });
-    });
+      if (dbHealthy) {
+        res.status(200);
+      } else {
+        res.status(503);
+      }
+      // Only send body for GET requests, not HEAD
+      if (_req.method === 'GET') {
+        res.json({
+          status: dbHealthy ? 'healthy' : 'unhealthy',
+          database: dbHealthy ? 'connected' : 'disconnected',
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        res.end();
+      }
+    };
+    this.app.get('/api/health', healthHandler);
+    this.app.head('/api/health', healthHandler);
 
     this.app.post('/api/auth/register', authController.register);
     this.app.post('/api/auth/login', authController.login);
