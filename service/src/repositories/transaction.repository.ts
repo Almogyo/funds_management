@@ -29,7 +29,8 @@ export class TransactionRepository {
     description: string,
     status: 'completed' | 'pending',
     installmentInfo: InstallmentInfo | null,
-    rawJson: string
+    rawJson: string,
+    mainCategoryId?: string | null
   ): Transaction {
     const id = randomUUID();
     const createdAt = Date.now();
@@ -38,9 +39,9 @@ export class TransactionRepository {
       INSERT INTO transactions (
         id, account_id, txn_hash, date, processed_date, amount, currency,
         description, status, installment_number, installment_total,
-        raw_json, created_at
+        raw_json, main_category_id, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -56,6 +57,7 @@ export class TransactionRepository {
       installmentInfo?.number || null,
       installmentInfo?.total || null,
       rawJson,
+      mainCategoryId || null,
       createdAt
     );
 
@@ -69,6 +71,7 @@ export class TransactionRepository {
       currency,
       description,
       categories: [],
+      mainCategoryId: mainCategoryId || null,
       status,
       installmentInfo,
       rawJson,
@@ -265,6 +268,7 @@ export class TransactionRepository {
       currency: row.currency,
       description: row.description,
       categories: this.transactionCategoryRepository.getByTransactionId(row.id),
+      mainCategoryId: row.main_category_id || null,
       status: row.status,
       installmentInfo,
       rawJson: row.raw_json,
@@ -281,5 +285,16 @@ export class TransactionRepository {
     `);
 
     return stmt.all() as Array<{ id: string; description: string }>;
+  }
+
+  /**
+   * Set the main category ID for a transaction
+   */
+  setMainCategoryId(transactionId: string, categoryId: string | null): void {
+    const stmt = this.db.prepare(`
+      UPDATE transactions SET main_category_id = ? WHERE id = ?
+    `);
+
+    stmt.run(categoryId, transactionId);
   }
 }

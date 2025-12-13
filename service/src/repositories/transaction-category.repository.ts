@@ -176,20 +176,29 @@ export class TransactionCategoryRepository {
 
   /**
    * Replace all automatic categories for a transaction (for bulk re-evaluation)
+   * If forceMainCategoryId is provided and exists in categoryIds, 
+   * that category will be set as the main category. Otherwise, first category is main.
    */
   replaceAutomatic(
     transactionId: string,
-    categoryIds: string[]
+    categoryIds: string[],
+    forceMainCategoryId?: string
   ): TransactionCategory[] {
     // Use transaction to ensure atomicity
     const transaction = this.db.transaction(() => {
       // Remove old automatic categories
       this.removeAutomatic(transactionId);
 
+      // Check if forceMainCategoryId exists in categoryIds
+      const forcedCategoryExists = forceMainCategoryId && categoryIds.includes(forceMainCategoryId);
+
       // Add new automatic categories
       const results: TransactionCategory[] = [];
-      for (const categoryId of categoryIds) {
-        const result = this.attach(transactionId, categoryId, false);
+      for (let i = 0; i < categoryIds.length; i++) {
+        const categoryId = categoryIds[i];
+        // Mark as main if: (1) forceMainCategoryId provided and matches, or (2) it's the first one and no forced match
+        const isMain = forcedCategoryExists ? categoryId === forceMainCategoryId : i === 0;
+        const result = this.attach(transactionId, categoryId, false, isMain);
         results.push(result);
       }
       return results;
@@ -200,18 +209,27 @@ export class TransactionCategoryRepository {
 
   /**
    * Bulk update categories for multiple transactions
-   * Format: { transactionId, categoryIds: string[] }
+   * Format: { transactionId, categoryIds: string[], forceMainCategoryId?: string }
+   * If forceMainCategoryId is provided and exists in categoryIds, that category will be set as main.
+   * Otherwise, the first category is marked as main.
    */
   bulkReplaceAutomatic(
-    updates: Array<{ transactionId: string; categoryIds: string[] }>
+    updates: Array<{ transactionId: string; categoryIds: string[]; forceMainCategoryId?: string }>
   ): number {
     const transaction = this.db.transaction(
-      (updates: Array<{ transactionId: string; categoryIds: string[] }>) => {
+      (updates: Array<{ transactionId: string; categoryIds: string[]; forceMainCategoryId?: string }>) => {
         let totalUpdated = 0;
-        for (const { transactionId, categoryIds } of updates) {
+        for (const { transactionId, categoryIds, forceMainCategoryId } of updates) {
           this.removeAutomatic(transactionId);
-          for (const categoryId of categoryIds) {
-            this.attach(transactionId, categoryId, false);
+          
+          // Check if forceMainCategoryId exists in categoryIds
+          const forcedCategoryExists = forceMainCategoryId && categoryIds.includes(forceMainCategoryId);
+
+          for (let i = 0; i < categoryIds.length; i++) {
+            const categoryId = categoryIds[i];
+            // Mark as main if: (1) forceMainCategoryId provided and matches, or (2) it's the first one and no forced match
+            const isMain = forcedCategoryExists ? categoryId === forceMainCategoryId : i === 0;
+            this.attach(transactionId, categoryId, false, isMain);
             totalUpdated++;
           }
         }

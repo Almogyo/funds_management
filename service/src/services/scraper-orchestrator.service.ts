@@ -1,5 +1,6 @@
 import { ScraperService, ScraperOptions } from './scraper.service';
 import { CredentialService } from './credential.service';
+import { TransactionService } from './transaction.service';
 import { TransactionProcessorService } from './transaction-processor.service';
 import { CategorizationService } from './categorization.service';
 import { Logger } from '../utils/logger';
@@ -41,6 +42,7 @@ export class ScraperOrchestratorService {
     private accountRepository: AccountRepository,
     private credentialRepository: CredentialRepository,
     private transactionRepository: TransactionRepository,
+    private transactionService: TransactionService,
     private categoryRepository: CategoryRepository,
     private transactionCategoryRepository: TransactionCategoryRepository,
     private logger: Logger
@@ -230,20 +232,13 @@ export class ScraperOrchestratorService {
                 txn.rawJson
               );
 
-              // First category is marked as main for analytics
-              for (let i = 0; i < categoryIds.length; i++) {
-                const categoryId = categoryIds[i];
-                const isMain = i === 0; // Mark first matched category as main
-                this.transactionCategoryRepository.attach(createdTxn.id, categoryId, false, isMain);
-              }
-
-              // If no categories matched, mark Unknown category as main
-              if (categoryIds.length === 0) {
-                const unknownCategory = this.categoryRepository.findByName('Unknown');
-                if (unknownCategory) {
-                  this.transactionCategoryRepository.attach(createdTxn.id, unknownCategory.id, false, true);
-                }
-              }
+              // Use TransactionService to attach categories and set main category
+              // The service handles all business logic: marking first as main,
+              // updating junction table, and syncing main_category_id column
+              this.transactionService.attachCategories(createdTxn.id, categoryIds, {
+                isManual: false,
+                markFirstAsMain: true,
+              });
 
               savedTransactionsCount++;
             }

@@ -49,7 +49,8 @@ export class CategoryController {
 
       // Trigger async re-categorization of all transactions
       // This happens in the background without blocking the response
-      this.triggerRecategorization();
+      // Pass the created category ID so it becomes the main category for matching transactions
+      this.triggerRecategorization(created.id);
 
       res.status(201).json({
         category: {
@@ -91,7 +92,8 @@ export class CategoryController {
 
       // Trigger async re-categorization of all transactions
       // This happens in the background without blocking the response
-      this.triggerRecategorization();
+      // Pass the updated category ID so it becomes the main category for matching transactions
+      this.triggerRecategorization(id);
 
       res.status(200).json({ message: 'Category updated' });
     } catch (error) {
@@ -130,13 +132,14 @@ export class CategoryController {
   /**
    * Trigger async re-categorization of all transactions
    * This runs in the background without blocking the HTTP response
+   * If forceMainCategoryId is provided, that category will be set as main for matching transactions
    */
-  private triggerRecategorization(): void {
+  private triggerRecategorization(forceMainCategoryId?: string): void {
     // Use setImmediate to queue the work after the current operation completes
     setImmediate(async () => {
       try {
         this.categorizationService.reloadCategories();
-        const result = await this.categorizationService.recategorizeAll();
+        const result = await this.categorizationService.recategorizeAll(forceMainCategoryId);
         this.logger.info('Background re-categorization completed', result);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Re-categorization failed';

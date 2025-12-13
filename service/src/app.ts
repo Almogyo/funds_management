@@ -18,6 +18,7 @@ import { TransactionCategoryRepository } from './repositories/transaction-catego
 
 import { AuthService } from './services/auth.service';
 import { CredentialService } from './services/credential.service';
+import { TransactionService } from './services/transaction.service';
 import { AnalyticsService } from './services/analytics.service';
 import { ScraperService } from './services/scraper.service';
 import { ScraperOrchestratorService } from './services/scraper-orchestrator.service';
@@ -102,12 +103,19 @@ export class App {
       categoryRepo,
       transactionCategoryRepo
     );
+    const transactionService = new TransactionService(
+      this.logger,
+      transactionRepo,
+      transactionCategoryRepo,
+      categoryRepo
+    );
     const scraperOrchestrator = new ScraperOrchestratorService(
       scraperService,
       credentialService,
       accountRepo,
       credentialRepo,
       transactionRepo,
+      transactionService,
       categoryRepo,
       transactionCategoryRepo,
       this.logger
@@ -122,9 +130,9 @@ export class App {
     );
     const transactionController = new TransactionController(
       transactionRepo,
+      transactionService,
       accountRepo,
       categoryRepo,
-      transactionCategoryRepo,
       this.logger
     );
     const analyticsController = new AnalyticsController(analyticsService, accountRepo, this.logger);

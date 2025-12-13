@@ -66,7 +66,11 @@ export class AnalyticsController {
 
       const dateRange = {
         startDate: new Date(startDate as string),
-        endDate: new Date(endDate as string),
+        endDate: (() => {
+          const date = new Date(endDate as string);
+          date.setHours(23, 59, 59, 999); // Set to end of day
+          return date;
+        })(),
       };
 
       let accountIds: string[];
@@ -146,7 +150,11 @@ export class AnalyticsController {
 
       const dateRange = {
         startDate: new Date(startDate as string),
-        endDate: new Date(endDate as string),
+        endDate: (() => {
+          const date = new Date(endDate as string);
+          date.setHours(23, 59, 59, 999); // Set to end of day
+          return date;
+        })(),
       };
 
       let accountIds: string[];
@@ -228,7 +236,11 @@ export class AnalyticsController {
 
       const dateRange = {
         startDate: new Date(startDate as string),
-        endDate: new Date(endDate as string),
+        endDate: (() => {
+          const date = new Date(endDate as string);
+          date.setHours(23, 59, 59, 999); // Set to end of day
+          return date;
+        })(),
       };
 
       let accountIds: string[];
@@ -316,7 +328,11 @@ export class AnalyticsController {
 
       const dateRange = {
         startDate: new Date(startDate as string),
-        endDate: new Date(endDate as string),
+        endDate: (() => {
+          const date = new Date(endDate as string);
+          date.setHours(23, 59, 59, 999); // Set to end of day
+          return date;
+        })(),
       };
 
       let accountIds: string[];
@@ -393,7 +409,11 @@ export class AnalyticsController {
 
       const dateRange = {
         startDate: new Date(startDate as string),
-        endDate: new Date(endDate as string),
+        endDate: (() => {
+          const date = new Date(endDate as string);
+          date.setHours(23, 59, 59, 999); // Set to end of day
+          return date;
+        })(),
       };
 
       let accountIds: string[];

@@ -1,17 +1,17 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import { TransactionService } from '../services/transaction.service';
 import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
-import { TransactionCategoryRepository } from '../repositories/transaction-category.repository';
 import { Logger } from '../utils/logger';
 
 export class TransactionController {
   constructor(
     private transactionRepository: TransactionRepository,
+    private transactionService: TransactionService,
     private accountRepository: AccountRepository,
     private categoryRepository: CategoryRepository,
-    private transactionCategoryRepository: TransactionCategoryRepository,
     private logger: Logger
   ) {}
 
@@ -242,18 +242,10 @@ export class TransactionController {
         return;
       }
 
-      // Verify the category exists and is attached to this transaction
-      const hasCategory = this.transactionCategoryRepository.hasCategory(
-        transactionId,
-        categoryId
-      );
-      if (!hasCategory) {
-        res.status(404).json({ error: 'Category not attached to this transaction' });
-        return;
-      }
-
-      // Set the category as main (unsets main from others)
-      this.transactionCategoryRepository.setAsMain(transactionId, categoryId);
+      // Use the service to set the main category
+      // The service handles all business logic: verifying category exists,
+      // updating junction table, and syncing the main_category_id column
+      this.transactionService.setMainCategory(transactionId, categoryId);
 
       this.logger.info(`Set main category for transaction`, {
         transactionId,

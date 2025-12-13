@@ -41,6 +41,7 @@ export interface Transaction {
   currency: string;
   description: string;
   categories: TransactionCategory[];
+  mainCategoryId: string | null; // ID of the main category for analytics, not the name
   status: 'completed' | 'pending';
   installmentInfo: InstallmentInfo | null;
   rawJson: string;

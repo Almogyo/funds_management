@@ -198,6 +198,16 @@ export class DatabaseService {
         ALTER TABLE transaction_categories ADD COLUMN is_main INTEGER NOT NULL DEFAULT 0;
       `);
     }
+
+    // Add main_category_id column to transactions table to store category ID (not name)
+    const transactionColumns = this.db.pragma("table_info('transactions')") as any[];
+    const hasMainCategoryId = transactionColumns.some((col) => col.name === 'main_category_id');
+
+    if (!hasMainCategoryId) {
+      this.db.exec(`
+        ALTER TABLE transactions ADD COLUMN main_category_id TEXT;
+      `);
+    }
   }
 
   public healthCheck(): boolean {

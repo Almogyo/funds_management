@@ -89,23 +89,28 @@ export class CategorizationService {
   /**
    * Re-categorize a specific transaction
    * Removes old automatic categories and applies new ones based on current rules
+   * If forceMainCategoryId is provided and matches a categorization result,
+   * that category will be set as the main category
    */
-  recategorizeTransaction(transactionId: string, description: string): string[] {
+  recategorizeTransaction(transactionId: string, description: string, forceMainCategoryId?: string): string[] {
     const categoryIds = this.categorizeTransaction(description);
-    this.transactionCategoryRepository.replaceAutomatic(transactionId, categoryIds);
+    this.transactionCategoryRepository.replaceAutomatic(transactionId, categoryIds, forceMainCategoryId);
     return categoryIds;
   }
 
   /**
    * Re-categorize multiple transactions in batches (async-friendly)
    * Used when categories change to update all affected transactions
+   * If forceMainCategoryId is provided, that category will be set as main
    */
   async recategorizeBatch(
     transactions: Array<{ id: string; description: string }>,
-    batchSize: number = 100
+    batchSize: number = 100,
+    forceMainCategoryId?: string
   ): Promise<{ processed: number; updated: number }> {
     this.logger.info(`Starting bulk re-categorization for ${transactions.length} transactions`, {
       batchSize,
+      forceMainCategoryId,
     });
 
     let totalProcessed = 0;
@@ -120,12 +125,16 @@ export class CategorizationService {
         `Processing batch ${batchNum}/${totalBatches} (${batch.length} transactions)`
       );
 
-      const updates: Array<{ transactionId: string; categoryIds: string[] }> = [];
+      const updates: Array<{ transactionId: string; categoryIds: string[]; forceMainCategoryId?: string }> = [];
 
       for (const txn of batch) {
         const categoryIds = this.categorizeTransaction(txn.description);
         if (categoryIds.length > 0) {
-          updates.push({ transactionId: txn.id, categoryIds });
+          updates.push({ 
+            transactionId: txn.id, 
+            categoryIds,
+            forceMainCategoryId
+          });
           totalUpdated++;
         }
         totalProcessed++;
@@ -150,10 +159,11 @@ export class CategorizationService {
 
   /**
    * Re-categorize all transactions (triggered on category change)
+   * If forceMainCategoryId is provided, that category will be set as main
    */
-  async recategorizeAll(): Promise<{ processed: number; updated: number }> {
+  async recategorizeAll(forceMainCategoryId?: string): Promise<{ processed: number; updated: number }> {
     const transactions = this.transactionCategoryRepository.getAllTransactionDescriptions();
-    return this.recategorizeBatch(transactions);
+    return this.recategorizeBatch(transactions, 100, forceMainCategoryId);
   }
 
   /**

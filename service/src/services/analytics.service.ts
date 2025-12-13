@@ -29,6 +29,7 @@ export interface ExpenseTrend {
   totalExpenses: number;
   totalIncome: number;
   netAmount: number;
+  profitTrend: number; // Cumulative profit: income - expenses (can be negative if losing money)
   transactionCount: number;
 }
 
@@ -190,9 +191,14 @@ export class AnalyticsService {
       periodMap.set(period, existing);
     }
 
-    const trends: ExpenseTrend[] = [];
+    // Sort periods chronologically BEFORE calculating cumulative profit
+    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => a.localeCompare(b));
 
-    for (const [period, txns] of periodMap.entries()) {
+    const trends: ExpenseTrend[] = [];
+    let cumulativeProfit = 0; // Running total of profit across periods
+
+    for (const period of sortedPeriods) {
+      const txns = periodMap.get(period)!;
       const expenses = txns.filter((t) => t.amount < 0);
       const income = txns.filter((t) => t.amount >= 0);
 
@@ -200,21 +206,23 @@ export class AnalyticsService {
         expenses.reduce((sum, t) => sum + t.amount, 0)
       );
       const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
+      const periodProfit = totalIncome - totalExpenses;
+      cumulativeProfit += periodProfit; // Add this period's profit to cumulative
 
       trends.push({
         period,
         totalExpenses,
         totalIncome,
         netAmount: totalIncome - totalExpenses,
+        profitTrend: cumulativeProfit, // Cumulative profit trend line
         transactionCount: txns.length,
       });
     }
 
-    trends.sort((a, b) => a.period.localeCompare(b.period));
-
     this.logger.calculationLog('Expense trends calculated', {
       periodsCount: trends.length,
       granularity,
+      finalCumulativeProfit: cumulativeProfit,
     });
 
     return trends;
