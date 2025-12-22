@@ -38,10 +38,18 @@ export interface Transaction {
   amount: number;
   currency: string;
   description: string;
-  category?: string;
+  categories?: TransactionCategory[];
   status: 'completed' | 'pending';
   installmentNumber?: number;
   installmentTotal?: number;
+  createdAt: number;
+}
+
+export interface TransactionCategory {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  isManual: boolean;
   createdAt: number;
 }
 
@@ -61,6 +69,7 @@ export interface AnalyticsSummary {
   accountCount: number;
   startDate: string;
   endDate: string;
+  lastDataUpdate?: string | null;
 }
 
 export interface CategoryDistribution {
@@ -75,6 +84,7 @@ export interface TrendData {
   totalIncome: number;
   totalExpenses: number;
   netAmount: number;
+  profitTrend: number; // Cumulative profit trend line
   transactionCount: number;
 }
 

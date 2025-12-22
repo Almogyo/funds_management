@@ -4,6 +4,8 @@ import {
   Card,
   CardContent,
   Typography,
+  Autocomplete,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -16,37 +18,75 @@ import {
   Alert,
 } from '@mui/material';
 import { apiClient } from '../services/api';
+import * as categoriesApi from '../services/categories';
+import TransactionCategoryDialog from '../components/Transactions/TransactionCategoryDialog';
 import { formatDate, formatCurrency } from '../utils/dateUtils';
 import type { Transaction } from '../types';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // parse query params for categories
+    const q = new URLSearchParams(location.search);
+    const cats = q.get('categories');
+    if (cats) {
+      setSelectedCategories(cats.split(','));
+    } else {
+      setSelectedCategories([]);
+    }
+  }, [location.search]);
+
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategories]);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [transactionsData, accountsData] = await Promise.all([
-        apiClient.getTransactions(),
+      const [transactionsData, accountsData, categoriesData] = await Promise.all([
+        apiClient.getTransactions({ categories: selectedCategories.length ? selectedCategories : undefined }),
         apiClient.getAccounts(),
+        (await import('../services/categories')).getCategories(),
       ]);
       setTransactions(transactionsData);
       setAccounts(accountsData);
+      setCategories(categoriesData);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch transactions');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCategoryChange = (selected: any[]) => {
+    const ids = selected.map((s) => s.id);
+    setSelectedCategories(ids);
+    // update query param
+    const qs = new URLSearchParams(location.search);
+    if (ids.length) {
+      qs.set('categories', ids.join(','));
+    } else {
+      qs.delete('categories');
+    }
+    navigate({ pathname: '/transactions', search: qs.toString() }, { replace: true });
   };
 
   const getAccountName = (accountId: string): string => {
@@ -72,6 +112,45 @@ export const Transactions: React.FC = () => {
     return amount >= 0 ? '#2e7d32' : '#d32f2f';
   };
 
+  const handleCategoryClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setCategoryDialogOpen(true);
+  };
+
+  const handleAssignExistingCategory = async (_transactionId: string, _categoryId: string) => {
+    try {
+      // Just close the dialog - categories are managed automatically via category creation/update
+      setCategoryDialogOpen(false);
+      setSelectedTransaction(null);
+      // In the future, this can support manual category attachment via a new API endpoint
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to assign category');
+    }
+  };
+
+  const handleCreateAndAssignCategory = async (
+    _transactionId: string,
+    categoryName: string,
+    keyword: string
+  ) => {
+    try {
+      // Create new category with keyword
+      // This will trigger automatic re-categorization in the background
+      await categoriesApi.createCategory(categoryName, [keyword]);
+      
+      // Close dialog and refresh to show updated categories
+      setCategoryDialogOpen(false);
+      setSelectedTransaction(null);
+      
+      // Wait a bit for background re-categorization to complete, then refresh
+      setTimeout(() => {
+        fetchData();
+      }, 500);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to create category');
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -94,6 +173,19 @@ export const Transactions: React.FC = () => {
         <Typography variant="body2" color="text.secondary">
           Total: {transactions.length} transactions
         </Typography>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Autocomplete
+          multiple
+          options={categories}
+          getOptionLabel={(o) => o.name}
+          value={categories.filter((c) => selectedCategories.includes(c.id))}
+          onChange={(_e, value) => handleCategoryChange(value)}
+          filterSelectedOptions
+          renderInput={(params) => <TextField {...params} label="Filter by categories" size="small" />}
+          sx={{ minWidth: 300 }}
+        />
       </Box>
 
       {error && (
@@ -143,11 +235,29 @@ export const Transactions: React.FC = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={transaction.category || 'Unknown'}
-                            size="small"
-                            color={getCategoryColor(transaction.category || 'Unknown')}
-                          />
+                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                            {transaction.categories && transaction.categories.length > 0 ? (
+                              transaction.categories.map((cat) => (
+                                <Chip
+                                  key={cat.id}
+                                  label={`${cat.categoryName}${cat.isManual ? ' (manual)' : ''}`}
+                                  size="small"
+                                  color={getCategoryColor(cat.categoryName)}
+                                  onClick={() => handleCategoryClick(transaction)}
+                                  sx={{ cursor: 'pointer' }}
+                                  variant={cat.isManual ? 'filled' : 'outlined'}
+                                />
+                              ))
+                            ) : (
+                              <Chip
+                                label="Unknown"
+                                size="small"
+                                color="default"
+                                onClick={() => handleCategoryClick(transaction)}
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            )}
+                          </Box>
                         </TableCell>
                         <TableCell align="right">
                           <Typography
@@ -184,6 +294,26 @@ export const Transactions: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <TransactionCategoryDialog
+        open={categoryDialogOpen}
+        transaction={
+          selectedTransaction
+            ? {
+                id: selectedTransaction.id,
+                description: selectedTransaction.description,
+                category: null,
+              }
+            : null
+        }
+        categories={categories}
+        onClose={() => {
+          setCategoryDialogOpen(false);
+          setSelectedTransaction(null);
+        }}
+        onAssignExisting={handleAssignExistingCategory}
+        onCreateAndAssign={handleCreateAndAssignCategory}
+      />
     </Box>
   );
 };

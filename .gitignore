@@ -18,7 +18,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
-data/
+service/data/
 
 # Logs
 logs/

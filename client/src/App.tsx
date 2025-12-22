@@ -9,6 +9,7 @@ import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Accounts } from './pages/Accounts';
 import { Transactions } from './pages/Transactions';
+import { Categories } from './pages/Categories';
 import { Logs } from './pages/Logs';
 import { theme } from './theme';
 
@@ -30,6 +31,7 @@ const App: React.FC = () => {
             >
               <Route index element={<Home />} />
               <Route path="accounts" element={<Accounts />} />
+              <Route path="categories" element={<Categories />} />
               <Route path="transactions" element={<Transactions />} />
               <Route path="logs" element={<Logs />} />
             </Route>

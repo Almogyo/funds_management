@@ -1,0 +1,13 @@
+For credit cards and other scrapers, we could possibly enrich our per transaction data even more, with more information and categorization done by each vendor.
+
+I want to be able to define additional fields for each specific vendor.
+Currently I see we have the BankTransaction model that defines the scraping results, but since credit cards or others might have additional data, maybe we can it as a parent model for more 'Transactions' like models that are relevant for other sources, like CreditCardTransaction etc that might be enriched with more information.
+
+So we want to be able to:
+- Understand what additional information is fetched from credit card vendors (we will do it gradually, so lets start with the isracard CompanyId)
+- Have a parent class for TransactionBase, and have the BankTransaction inherit from it and CreditCardTransaction as well with the general additional information being parsed (the vendor specific categorization etc)
+- Have a 'per scraper' specific handling if required and the specific TransactionBase model that is fetched from the scraping
+- An abstract method that will allow to have a specific business logic that should eventually help in categorizing the transaction regardless of its source, but that will utilize all available information from the scrape
+
+Be meticolous, get the data required from remote repository or specific vendors API documentation, show me the plan and the additional available scraping information before we execute.
+Be precise, architect-like minded and expert engineer that thinks about expansion, generalization and proper methodology for such a broad and important project

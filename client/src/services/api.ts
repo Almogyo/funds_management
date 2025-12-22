@@ -111,6 +111,15 @@ class ApiClient {
     return response.data.accounts;
   }
 
+  async getCategories(): Promise<{ id: string; name: string; keywords: string[]; createdAt: number }[]> {
+    // moved to domain service `services/categories.ts` - keep behavior for compatibility
+    const response = await this.client.get<{ categories: { id: string; name: string; keywords: string[]; createdAt: number }[] }>(
+      '/api/categories'
+    );
+    return response.data.categories;
+  }
+
+
   async createAccount(
     companyId: CompanyId,
     accountNumber: string,
@@ -146,12 +155,19 @@ class ApiClient {
     endDate?: string;
     accountId?: string;
     category?: string;
+    categories?: string[];
     minAmount?: number;
     maxAmount?: number;
   }): Promise<Transaction[]> {
+    const params: any = { ...filters };
+    if (filters?.categories) {
+      params.categories = filters.categories.join(',');
+      delete params.categoriesArray;
+    }
+
     const response = await this.client.get<{ transactions: Transaction[]; count: number }>(
       '/api/transactions',
-      { params: filters }
+      { params }
     );
     return response.data.transactions;
   }

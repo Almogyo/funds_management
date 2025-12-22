@@ -21,6 +21,7 @@ import {
   AccountBalance as AccountBalanceIcon,
   Receipt as ReceiptIcon,
   Description as DescriptionIcon,
+  Category as CategoryIcon,
   Menu as MenuIcon,
   AccountCircle,
   Logout,
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { label: 'Home', icon: <HomeIcon />, path: '/' },
   { label: 'Accounts', icon: <AccountBalanceIcon />, path: '/accounts' },
   { label: 'Transactions', icon: <ReceiptIcon />, path: '/transactions' },
+  { label: 'Categories', icon: <CategoryIcon />, path: '/categories' },
   { label: 'Logs', icon: <DescriptionIcon />, path: '/logs' },
 ];
 

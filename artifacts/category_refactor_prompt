@@ -1,0 +1,21 @@
+I want us to rethink and implement the whole categorization logic and flow as this is a crucial part of the system that should be optimized and well executed.
+
+Category definition:
+- Each category should have these attributes:
+  - Name - string understand what was categorized by the system and what was his configuration, and allow us to have multi level categorization and abstraction
+  - Keywords - list of strings that will be used as an 'exact match' on the description field of a transaction and define if the category should be attached to the transaction or not
+
+Categories management:
+- The categories tab
+  - Shows a table of existing categories with their name and keywords
+  - Allows to add new categories, edit existing ones and sync such that existing transactions will be reevaluated with the categories logic.
+  - On a category edit save, this should be the only categroy that is 'auto' evaluated on all transactions, so in general the Sync categories button is redundant and can be removed - the update process will take place automatically when creating a new category or editing an existing one and only on that category 
+
+Categorization flow in case of scraping:
+  Any new transaction that is being added via the scrape process, should be categorized according to the existing categories logic.
+  A transaction could have multiple categories attached, so we might need to update the Transaction entity.
+  Each category applied to a transaction, should also hold metadata so the system will know if it was automatically/manually attached to the transaction (for example if a user explicitly decides a transaction description should be categorized as his selection regardless of the categories configured keywords), and allow the display of all categories attached to a transaction.
+
+  Since every edit or addition of a category involves in a 're evaluate' process of all transactions, this process should be async. 
+  On a category name change, we should make sure only the new category name is attached and we don't have left overs of the old name.
+  On a category keywords change, we should reevaluate if the transaction's description has an 'exact match' for the category configured words, and remove the regex like behavior of categorization

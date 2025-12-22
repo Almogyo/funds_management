@@ -30,7 +30,7 @@ jobs:
 
       - name: Start backend server
         run: |
-          npm run dev &
+          npm run start &
           echo "Waiting for backend to start..."
           npx wait-on http://localhost:3000/api/health --timeout 30000
         env:
