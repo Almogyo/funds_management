@@ -83,6 +83,9 @@ export class DatabaseService {
         installment_number INTEGER,
         installment_total INTEGER,
         raw_json TEXT NOT NULL,
+        main_category_id TEXT,
+        enrichment_data TEXT,
+        enriched_at TEXT,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
         UNIQUE(account_id, txn_hash)
@@ -102,6 +105,7 @@ export class DatabaseService {
         transaction_id TEXT NOT NULL,
         category_id TEXT NOT NULL,
         is_manual INTEGER NOT NULL DEFAULT 0,
+        source TEXT DEFAULT 'system',
         created_at INTEGER NOT NULL,
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
@@ -130,6 +134,48 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_transaction_categories_category ON transaction_categories(category_id);
       CREATE INDEX IF NOT EXISTS idx_scraper_jobs_user_id ON scraper_jobs(user_id);
       CREATE INDEX IF NOT EXISTS idx_scraper_jobs_status ON scraper_jobs(status);
+
+      CREATE TABLE IF NOT EXISTS category_scores (
+        id TEXT PRIMARY KEY,
+        transaction_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        vendor_id TEXT NOT NULL,
+        description TEXT NOT NULL,
+        description_top_score REAL,
+        description_top_category_id TEXT,
+        vendor_score REAL,
+        vendor_category_id TEXT,
+        main_category_id TEXT,
+        decision_source TEXT NOT NULL,
+        decision_confidence TEXT NOT NULL,
+        decision_reason TEXT,
+        calculated_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS category_overrides (
+        id TEXT PRIMARY KEY,
+        transaction_id TEXT NOT NULL,
+        previous_main_category_id TEXT,
+        new_main_category_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        reason TEXT,
+        overridden_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_category_scores_transaction_id ON category_scores(transaction_id);
+      CREATE INDEX IF NOT EXISTS idx_category_scores_vendor_id ON category_scores(vendor_id);
+      CREATE INDEX IF NOT EXISTS idx_category_scores_source ON category_scores(decision_source);
+      CREATE INDEX IF NOT EXISTS idx_category_scores_confidence ON category_scores(decision_confidence);
+      CREATE INDEX IF NOT EXISTS idx_category_scores_calculated_at ON category_scores(calculated_at);
+      CREATE INDEX IF NOT EXISTS idx_category_overrides_transaction_id ON category_overrides(transaction_id);
+      CREATE INDEX IF NOT EXISTS idx_category_overrides_user_id ON category_overrides(user_id);
+      CREATE INDEX IF NOT EXISTS idx_category_overrides_overridden_at ON category_overrides(overridden_at);
     `);
   }
 

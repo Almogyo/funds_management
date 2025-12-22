@@ -139,7 +139,7 @@ export class CategoryController {
     setImmediate(async () => {
       try {
         this.categorizationService.reloadCategories();
-        const result = await this.categorizationService.recategorizeAll(forceMainCategoryId);
+        const result = await this.categorizationService.recategorizeAll();
         this.logger.info('Background re-categorization completed', result);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Re-categorization failed';

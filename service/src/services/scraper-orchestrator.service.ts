@@ -49,11 +49,9 @@ export class ScraperOrchestratorService {
   ) {
     this.transactionProcessor = new TransactionProcessorService(this.logger);
     this.categorizationService = new CategorizationService(
-      this.logger,
       this.categoryRepository,
-      this.transactionCategoryRepository
+      this.transactionRepository
     );
-    this.categorizationService.ensureUnknownCategory();
   }
 
   async createJob(userId: string, accountIds: string[]): Promise<ScraperJob> {
@@ -215,7 +213,8 @@ export class ScraperOrchestratorService {
               txn.txnHash
             );
             if (!existingTxn) {
-              const categoryIds = this.categorizationService.categorizeTransaction(txn.description);
+              // Call with string description for synchronous categorization (backwards compatible)
+              const categoryIds = this.categorizationService.categorizeTransaction(txn.description) as string[];
 
               const createdTxn = this.transactionRepository.create(
                 account.accountId,

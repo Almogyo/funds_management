@@ -15,6 +15,7 @@ import { AccountRepository } from './repositories/account.repository';
 import { TransactionRepository } from './repositories/transaction.repository';
 import { CategoryRepository } from './repositories/category.repository';
 import { TransactionCategoryRepository } from './repositories/transaction-category.repository';
+import { CategoryScoreRepository } from './repositories/category-score.repository';
 
 import { AuthService } from './services/auth.service';
 import { CredentialService } from './services/credential.service';
@@ -99,9 +100,10 @@ export class App {
     const analyticsService = new AnalyticsService(this.logger, transactionRepo, accountRepo);
     const scraperService = new ScraperService(this.logger, this.config.scraping.screenshotPath);
     const categorizationService = new CategorizationService(
-      this.logger,
       categoryRepo,
-      transactionCategoryRepo
+      transactionRepo,
+      new CategoryScoreRepository(db, this.logger),
+      this.logger
     );
     const transactionService = new TransactionService(
       this.logger,

@@ -297,4 +297,30 @@ export class TransactionRepository {
 
     stmt.run(categoryId, transactionId);
   }
+
+  /**
+   * Update enrichment data for a transaction.
+   */
+  updateEnrichmentData(transactionId: string, enrichmentData: Record<string, any>): void {
+    const stmt = this.db.prepare(`
+      UPDATE transactions SET enrichment_data = ?, enriched_at = ? WHERE id = ?
+    `);
+
+    stmt.run(JSON.stringify(enrichmentData), new Date().toISOString(), transactionId);
+  }
+
+  /**
+   * Update category source field for a transaction-category relationship.
+   */
+  updateCategorySource(
+    transactionId: string,
+    categoryId: string,
+    source: 'description' | 'vendor' | 'user'
+  ): void {
+    const stmt = this.db.prepare(`
+      UPDATE transaction_categories SET source = ? WHERE transaction_id = ? AND category_id = ?
+    `);
+
+    stmt.run(source, transactionId, categoryId);
+  }
 }

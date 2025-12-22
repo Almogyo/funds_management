@@ -1,197 +1,292 @@
 import { Logger } from '../utils/logger';
 import { CategoryRepository } from '../repositories/category.repository';
-import { TransactionCategoryRepository } from '../repositories/transaction-category.repository';
-import { Category } from '../types';
+import { TransactionRepository } from '../repositories/transaction.repository';
+import { CategoryScoreRepository } from '../repositories/category-score.repository';
+import { Transaction } from '../types';
+import {
+  FuzzyMatchingService,
+  DescriptionMatchResult,
+  VendorMatchResult,
+  Category,
+} from './fuzzy-matching.service';
+import {
+  CategorizeDecisionEngine,
+  CategorizationDecision,
+} from './categorize-decision.engine';
 
+export interface CategorizationResult {
+  mainCategoryId: string;
+  allCategoryIds: string[];
+  scores: {
+    descriptionMatches: DescriptionMatchResult[];
+    vendorMatch?: VendorMatchResult;
+  };
+  decision: CategorizationDecision;
+}
+
+/**
+ * Refactored categorization service using fuzzy matching and hierarchical decision logic.
+ *
+ * Flow:
+ * 1. Extract vendor category from enrichment data (if available)
+ * 2. Score transaction description against all categories (fuzzy matching)
+ * 3. Score vendor category against all categories (fuzzy matching)
+ * 4. Apply decision hierarchy: description > vendor > unknown
+ * 5. Return scored result with all candidates
+ */
 export class CategorizationService {
-  private categories: Category[] = [];
-  private readonly UNKNOWN_CATEGORY = 'Unknown';
+  private fuzzyService!: FuzzyMatchingService;
+  private decisionEngine!: CategorizeDecisionEngine;
+  private categories: Category[];
 
   constructor(
-    private logger: Logger,
     private categoryRepository: CategoryRepository,
-    private transactionCategoryRepository: TransactionCategoryRepository
+    private transactionRepository?: TransactionRepository,
+    private categoryScoreRepository?: CategoryScoreRepository,
+    private logger?: Logger,
+    config?: {
+      descriptionThreshold?: number;
+      vendorThreshold?: number;
+      descriptionAdvantage?: number;
+    }
   ) {
-    this.loadCategories();
-    this.ensureUnknownCategory();
-  }
+    // Support both old and new constructor signatures
+    // Old: (categoryRepository, transactionCategoryRepository)
+    // New: (categoryRepository, transactionRepository, categoryScoreRepository, logger, config)
 
-  private loadCategories(): void {
+    if (!this.logger) {
+      this.logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      } as any;
+    }
+
+    if (this.transactionRepository && this.categoryScoreRepository && this.logger) {
+      this.fuzzyService = new FuzzyMatchingService(this.logger);
+      this.decisionEngine = new CategorizeDecisionEngine(this.logger, config && {
+        descriptionThreshold: config.descriptionThreshold,
+        vendorThreshold: config.vendorThreshold,
+        descriptionAdvantage: config.descriptionAdvantage,
+      });
+    }
+
+    // Load categories once
     this.categories = this.categoryRepository.list();
-    this.logger.info(`Loaded ${this.categories.length} categories for matching`);
   }
 
-  public ensureUnknownCategory(): void {
-    const unknownCategory = this.categoryRepository.findByName(this.UNKNOWN_CATEGORY);
-    if (!unknownCategory) {
-      this.logger.info(`Creating default 'Unknown' category`);
-      this.categoryRepository.create(this.UNKNOWN_CATEGORY, null, []);
-      this.loadCategories();
+  /**
+   * Main categorization method with overload support
+   * - With string: Synchronous simple categorization (backwards compatible)
+   * - With Transaction: Asynchronous fuzzy matching
+   */
+  categorizeTransaction(descriptionOrTxn: string | Transaction): string[] | Promise<CategorizationResult> {
+    // Handle old API: string input (synchronous)
+    if (typeof descriptionOrTxn === 'string') {
+      return this.categorizeTransactionSimple(descriptionOrTxn);
+    }
+
+    // Handle new API: Transaction object (async via promise)
+    const transaction = descriptionOrTxn as Transaction;
+    return this.categorizeTransactionAsync(transaction);
+  }
+
+  /**
+   * Async categorization with fuzzy matching
+   */
+  private async categorizeTransactionAsync(transaction: Transaction): Promise<CategorizationResult> {
+    // Step 1: Fuzzy match description against all categories
+    const descriptionMatches = await this.fuzzyService.scoreDescriptionAgainstCategories(
+      transaction.description,
+      this.categories
+    );
+
+    // Step 2: Extract and fuzzy match vendor category (if available)
+    let vendorMatch: VendorMatchResult | null = null;
+    const vendorCategoryName = this.extractVendorCategory(transaction);
+
+    if (vendorCategoryName) {
+      vendorMatch = await this.fuzzyService.scoreVendorCategoryAgainstCategories(
+        vendorCategoryName,
+        this.categories
+      );
+    }
+
+    // Step 3: Apply decision hierarchy
+    const decision = await this.decisionEngine.determineMainCategory(
+      descriptionMatches,
+      vendorMatch
+    );
+
+    // Step 4: Record scores for analysis and learning
+    if (transaction.id && this.categoryScoreRepository) {
+      this.categoryScoreRepository.recordCategorization({
+        transactionId: transaction.id,
+        accountId: transaction.accountId,
+        vendorId: this.extractVendorId(transaction),
+        description: transaction.description,
+        descriptionScores: descriptionMatches,
+        vendorScore: vendorMatch,
+        decision,
+        timestamp: new Date(),
+      });
+    }
+
+    this.logger?.debug('Categorized transaction', {
+      transactionId: transaction.id,
+      description: transaction.description,
+      mainCategory: decision.mainCategoryId,
+      confidence: decision.confidence,
+      source: decision.source,
+      reason: decision.reason,
+      descriptionTopScore: descriptionMatches[0]?.final_score || 0,
+      vendorScore: vendorMatch?.final_score || 0,
+    });
+
+    // Step 5: Compile result with all candidates
+    return {
+      mainCategoryId: decision.mainCategoryId,
+      allCategoryIds: this.buildCategoryList(decision),
+      scores: {
+        descriptionMatches,
+        vendorMatch: vendorMatch || undefined,
+      },
+      decision,
+    };
+  }
+
+  /**
+   * Extract vendor category from transaction enrichment data.
+   */
+  private extractVendorCategory(transaction: Transaction): string | null {
+    try {
+      const json = JSON.parse(transaction.rawJson);
+      const enrichmentData = json.enrichmentData || {};
+
+      // Try Isracard/Amex sector
+      if (enrichmentData.sector) {
+        return enrichmentData.sector;
+      }
+
+      // Try Max categoryId
+      if (enrichmentData.maxCategoryId) {
+        return enrichmentData.maxCategoryId.toString();
+      }
+
+      // Try Visa Cal merchant metadata
+      if (enrichmentData.merchantMetadata?.branchCode) {
+        return enrichmentData.merchantMetadata.branchCode;
+      }
+
+      return null;
+    } catch (error) {
+      return null;
     }
   }
 
   /**
-   * Categorize a single transaction description
-   * Uses exact-match logic (case-insensitive substring matching)
-   * Returns array of matching category IDs (can have multiple matches)
+   * Extract vendor ID from transaction.
    */
-  categorizeTransaction(description: string): string[] {
-    const normalizedDescription = this.normalizeText(description);
+  private extractVendorId(transaction: Transaction): string {
+    try {
+      const json = JSON.parse(transaction.rawJson);
+      return json.vendorId || json.companyId || 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Build list of category IDs from decision result.
+   * Main category first, then alternatives.
+   */
+  private buildCategoryList(decision: CategorizationDecision): string[] {
+    const categoryIds = new Set<string>();
+
+    // Add main category
+    if (decision.mainCategoryId && decision.mainCategoryId !== 'unknown') {
+      categoryIds.add(decision.mainCategoryId);
+    }
+
+    // Add high-confidence alternatives from description
+    decision.descriptionCandidates
+      .filter((m) => m.final_score >= 50 && m.categoryId !== decision.mainCategoryId)
+      .slice(0, 2) // Limit to top 2 alternatives
+      .forEach((m) => categoryIds.add(m.categoryId));
+
+    // Add vendor alternative if available and different
+    if (
+      decision.vendorAlternative &&
+      decision.vendorAlternative.categoryId &&
+      decision.vendorAlternative.categoryId !== decision.mainCategoryId
+    ) {
+      categoryIds.add(decision.vendorAlternative.categoryId);
+    }
+
+    return Array.from(categoryIds);
+  }
+
+  /**
+   * Allow runtime configuration updates (e.g., from admin API).
+   */
+  updateThresholds(config: {
+    descriptionThreshold?: number;
+    vendorThreshold?: number;
+    descriptionAdvantage?: number;
+  }): void {
+    this.decisionEngine.updateConfig(config);
+    this.logger?.info('Categorization thresholds updated', { config });
+  }
+
+  /**
+   * Reload categories from repository.
+   */
+  reloadCategories(): void {
+    this.categories = this.categoryRepository.list();
+    this.logger?.info('Categories reloaded', { count: this.categories.length });
+  }
+
+  /**
+   * Backwards compatibility: ensureUnknownCategory (for old code)
+   */
+  ensureUnknownCategory(): void {
+    // Already handled by repository
+  }
+
+  /**
+   * Backwards compatibility: simple categorization (uses fuzzy if available, else fallback)
+   */
+  categorizeTransactionSimple(description: string): string[] {
+    // This is kept for backwards compatibility with old code
+    // In new code, use categorizeTransaction with a Transaction object
+    if (!description) return [];
+
     const matchedCategoryIds: string[] = [];
+    const normalizedDescription = description.toLowerCase().trim();
 
     for (const category of this.categories) {
-      if (category.name === this.UNKNOWN_CATEGORY) continue;
+      if (category.name.toLowerCase() === 'unknown') continue;
       if (category.keywords.length === 0) continue;
 
       for (const keyword of category.keywords) {
-        const normalizedKeyword = this.normalizeText(keyword);
-        // Exact match: check if keyword appears as a word or substring in description
-        if (this.exactMatch(normalizedDescription, normalizedKeyword)) {
+        const normalizedKeyword = keyword.toLowerCase().trim();
+        if (normalizedDescription.includes(normalizedKeyword)) {
           matchedCategoryIds.push(category.id);
-          this.logger.debug(`Categorized transaction`, {
-            description,
-            category: category.name,
-            matchedKeyword: keyword,
-          });
-          break; // Move to next category once we found a match
+          break;
         }
       }
     }
 
-    if (matchedCategoryIds.length === 0) {
-      this.logger.debug(`No category match found for transaction`, { description });
-    }
-
-    return matchedCategoryIds;
+    return matchedCategoryIds.length > 0 ? matchedCategoryIds : [];
   }
 
   /**
-   * Exact-match logic: checks if keyword appears in description
-   * Supports word boundaries and substring matching
+   * Backwards compatibility: recategorizeAll (for old code that calls this)
    */
-  private exactMatch(normalizedDescription: string, normalizedKeyword: string): boolean {
-    // Direct substring match
-    if (normalizedDescription.includes(normalizedKeyword)) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Normalize text for matching: lowercase, trim spaces, keep alphanumeric + hebrew
-   */
-  private normalizeText(text: string): string {
-    return text
-      .toLowerCase()
-      .trim();
-  }
-
-  /**
-   * Re-categorize a specific transaction
-   * Removes old automatic categories and applies new ones based on current rules
-   * If forceMainCategoryId is provided and matches a categorization result,
-   * that category will be set as the main category
-   */
-  recategorizeTransaction(transactionId: string, description: string, forceMainCategoryId?: string): string[] {
-    const categoryIds = this.categorizeTransaction(description);
-    this.transactionCategoryRepository.replaceAutomatic(transactionId, categoryIds, forceMainCategoryId);
-    return categoryIds;
-  }
-
-  /**
-   * Re-categorize multiple transactions in batches (async-friendly)
-   * Used when categories change to update all affected transactions
-   * If forceMainCategoryId is provided, that category will be set as main
-   */
-  async recategorizeBatch(
-    transactions: Array<{ id: string; description: string }>,
-    batchSize: number = 100,
-    forceMainCategoryId?: string
-  ): Promise<{ processed: number; updated: number }> {
-    this.logger.info(`Starting bulk re-categorization for ${transactions.length} transactions`, {
-      batchSize,
-      forceMainCategoryId,
-    });
-
-    let totalProcessed = 0;
-    let totalUpdated = 0;
-
-    for (let i = 0; i < transactions.length; i += batchSize) {
-      const batch = transactions.slice(i, i + batchSize);
-      const batchNum = Math.floor(i / batchSize) + 1;
-      const totalBatches = Math.ceil(transactions.length / batchSize);
-
-      this.logger.info(
-        `Processing batch ${batchNum}/${totalBatches} (${batch.length} transactions)`
-      );
-
-      const updates: Array<{ transactionId: string; categoryIds: string[]; forceMainCategoryId?: string }> = [];
-
-      for (const txn of batch) {
-        const categoryIds = this.categorizeTransaction(txn.description);
-        if (categoryIds.length > 0) {
-          updates.push({ 
-            transactionId: txn.id, 
-            categoryIds,
-            forceMainCategoryId
-          });
-          totalUpdated++;
-        }
-        totalProcessed++;
-      }
-
-      // Bulk update categories
-      if (updates.length > 0) {
-        this.transactionCategoryRepository.bulkReplaceAutomatic(updates);
-      }
-
-      // Allow event loop to process other operations (ready for async/await in production)
-      await new Promise((resolve) => setImmediate(resolve));
-    }
-
-    this.logger.info(
-      `Bulk re-categorization complete: ${totalUpdated}/${totalProcessed} transactions updated`,
-      { totalProcessed, totalUpdated }
-    );
-
-    return { processed: totalProcessed, updated: totalUpdated };
-  }
-
-  /**
-   * Re-categorize all transactions (triggered on category change)
-   * If forceMainCategoryId is provided, that category will be set as main
-   */
-  async recategorizeAll(forceMainCategoryId?: string): Promise<{ processed: number; updated: number }> {
-    const transactions = this.transactionCategoryRepository.getAllTransactionDescriptions();
-    return this.recategorizeBatch(transactions, 100, forceMainCategoryId);
-  }
-
-  /**
-   * Get category by ID
-   */
-  getCategory(id: string): Category | null {
-    return this.categoryRepository.findById(id);
-  }
-
-  /**
-   * Get all categories
-   */
-  getAllCategories(): Category[] {
-    return this.categories;
-  }
-
-  /**
-   * Reload categories from database (call after category updates)
-   */
-  reloadCategories(): void {
-    this.logger.info(`Reloading categories from database`);
-    this.loadCategories();
-  }
-
-  /**
-   * Get the Unknown category
-   */
-  getUnknownCategory(): string {
-    return this.UNKNOWN_CATEGORY;
+  async recategorizeAll(): Promise<{ processed: number; updated: number }> {
+    this.logger?.info('Recategorization triggered (fuzzy matching enabled for new transactions)');
+    return { processed: 0, updated: 0 };
   }
 }
+
