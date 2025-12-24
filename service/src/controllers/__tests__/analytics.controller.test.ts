@@ -1,19 +1,17 @@
 import path from 'path';
 import fs from 'fs';
-import { Response } from 'express';
 import { DatabaseService } from '../../database/database.service';
-import { AnalyticsController } from '../analytics.controller';
 import { TransactionRepository } from '../../repositories/transaction.repository';
 import { TransactionCategoryRepository } from '../../repositories/transaction-category.repository';
 import { CategoryRepository } from '../../repositories/category.repository';
 import { AccountRepository } from '../../repositories/account.repository';
+import { UserRepository } from '../../repositories/user.repository';
 import { AnalyticsService } from '../../services/analytics.service';
 import { Logger } from '../../utils/logger';
 
 describe('AnalyticsController - Category Distribution (Pie Chart)', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'analytics-controller-test.db');
   let dbService: DatabaseService;
-  let analyticsController: AnalyticsController;
   let transactionRepo: TransactionRepository;
   let transactionCategoryRepo: TransactionCategoryRepository;
   let categoryRepo: CategoryRepository;
@@ -47,10 +45,14 @@ describe('AnalyticsController - Category Distribution (Pie Chart)', () => {
       file: false,
     });
     analyticsService = new AnalyticsService(logger, transactionRepo, accountRepo);
-    analyticsController = new AnalyticsController(analyticsService, accountRepo, logger);
+
+    // Create test user first
+    const userRepo = new UserRepository(db);
+    const user = userRepo.create('testuser', 'password-hash');
+    const testUserId = user.id;
 
     // Create test account
-    const account = accountRepo.create('test-user', '12345', 'hapoalim', 'Test Account');
+    const account = accountRepo.create(testUserId, '12345', 'hapoalim', 'Test Account');
     testAccountId = account.id;
 
     // Create test categories

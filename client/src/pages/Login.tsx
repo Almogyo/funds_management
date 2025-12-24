@@ -57,7 +57,6 @@ export const Login: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
-    } finally {
       setLoading(false);
     }
   };
@@ -85,7 +84,6 @@ export const Login: React.FC = () => {
       setError(
         err.response?.data?.error || 'Registration failed. Username may already exist.'
       );
-    } finally {
       setLoading(false);
     }
   };

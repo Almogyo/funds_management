@@ -69,7 +69,7 @@ export class IsracardEnricher implements IEnricher {
    * Fetch sector from Isracard secondary API.
    * In production, this would call the PirteyIska_204 endpoint.
    */
-  private async fetchSector(identifier: string): Promise<string | null> {
+  private async fetchSector(_identifier: string): Promise<string | null> {
     // TODO: Implement actual API call to PirteyIska_204
     // For now, return null as placeholder
     return null;
@@ -82,8 +82,8 @@ export class IsracardEnricher implements IEnricher {
 export class AmexEnricher implements IEnricher {
   private isracardEnricher: IsracardEnricher;
 
-  constructor(private logger: Logger) {
-    this.isracardEnricher = new IsracardEnricher(logger);
+  constructor(_logger: Logger) {
+    this.isracardEnricher = new IsracardEnricher(_logger);
   }
 
   async enrichTransaction(transaction: Transaction): Promise<EnrichmentData> {

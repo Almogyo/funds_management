@@ -5,6 +5,7 @@ import { TransactionRepository } from '../transaction.repository';
 import { TransactionCategoryRepository } from '../transaction-category.repository';
 import { CategoryRepository } from '../category.repository';
 import { AccountRepository } from '../account.repository';
+import { UserRepository } from '../user.repository';
 
 describe('TransactionRepository - getTotalsByCategory', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'transaction-repo-test.db');
@@ -30,13 +31,18 @@ describe('TransactionRepository - getTotalsByCategory', () => {
     dbService = new DatabaseService(testDbPath);
     const db = dbService.getDatabase();
 
+    const userRepo = new UserRepository(db);
     accountRepo = new AccountRepository(db);
     categoryRepo = new CategoryRepository(db);
     transactionCategoryRepo = new TransactionCategoryRepository(db);
     transactionRepo = new TransactionRepository(db, transactionCategoryRepo);
 
+    // Create test user first
+    const user = userRepo.create('testuser', 'password-hash');
+    const testUserId = user.id;
+
     // Create test account
-    const account = accountRepo.create('test-user', '12345', 'hapoalim', 'Test Account');
+    const account = accountRepo.create(testUserId, '12345', 'hapoalim', 'Test Account');
     testAccountId = account.id;
 
     // Create test categories

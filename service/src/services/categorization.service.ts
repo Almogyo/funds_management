@@ -64,7 +64,7 @@ export class CategorizationService {
     }
 
     if (this.transactionRepository && this.categoryScoreRepository && this.logger) {
-      this.fuzzyService = new FuzzyMatchingService(this.logger);
+      this.fuzzyService = new FuzzyMatchingService();
       this.decisionEngine = new CategorizeDecisionEngine(this.logger, config && {
         descriptionThreshold: config.descriptionThreshold,
         vendorThreshold: config.vendorThreshold,

@@ -68,25 +68,51 @@ class ApiClient {
   }
 
   async register(username: string, password: string): Promise<AuthResponse> {
-    const response = await this.client.post<AuthResponse>('/api/auth/register', {
-      username,
-      password,
-    });
-    this.setSession(response.data.sessionId);
-    localStorage.setItem('userId', response.data.userId);
-    localStorage.setItem('username', response.data.username);
-    return response.data;
+    console.log('[ApiClient.register] Sending registration request for user:', username);
+    try {
+      const response = await this.client.post<AuthResponse>('/api/auth/register', {
+        username,
+        password,
+      });
+      console.log('[ApiClient.register] Response received:', response.data);
+      this.setSession(response.data.sessionId);
+      localStorage.setItem('userId', response.data.userId);
+      localStorage.setItem('username', response.data.username);
+      console.log('[ApiClient.register] Session and localStorage updated:', {
+        sessionId: response.data.sessionId,
+        userId: response.data.userId,
+        username: response.data.username,
+        isAuthenticated: this.isAuthenticated(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[ApiClient.register] Request failed:', error);
+      throw error;
+    }
   }
 
   async login(username: string, password: string): Promise<AuthResponse> {
-    const response = await this.client.post<AuthResponse>('/api/auth/login', {
-      username,
-      password,
-    });
-    this.setSession(response.data.sessionId);
-    localStorage.setItem('userId', response.data.userId);
-    localStorage.setItem('username', response.data.username);
-    return response.data;
+    console.log('[ApiClient.login] Sending login request for user:', username);
+    try {
+      const response = await this.client.post<AuthResponse>('/api/auth/login', {
+        username,
+        password,
+      });
+      console.log('[ApiClient.login] Response received:', response.data);
+      this.setSession(response.data.sessionId);
+      localStorage.setItem('userId', response.data.userId);
+      localStorage.setItem('username', response.data.username);
+      console.log('[ApiClient.login] Session and localStorage updated:', {
+        sessionId: response.data.sessionId,
+        userId: response.data.userId,
+        username: response.data.username,
+        isAuthenticated: this.isAuthenticated(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[ApiClient.login] Request failed:', error);
+      throw error;
+    }
   }
 
   async logout(): Promise<void> {

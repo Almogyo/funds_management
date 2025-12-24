@@ -67,7 +67,7 @@ export class IsracardEnricher implements IEnricher {
    * Fetch sector from Isracard secondary API.
    * In production, this would call the PirteyIska_204 endpoint.
    */
-  private async fetchSector(identifier: string): Promise<string | null> {
+  private async fetchSector(_identifier: string): Promise<string | null> {
     // TODO: Implement actual API call to PirteyIska_204
     return null;
   }

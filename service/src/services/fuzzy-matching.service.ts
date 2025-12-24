@@ -1,5 +1,4 @@
 import * as fuzzball from 'fuzzball';
-import { Logger } from '../utils/logger';
 
 export interface Category {
   id: string;
@@ -45,8 +44,6 @@ export class FuzzyMatchingService {
 
   // Minimum score to consider a match valid
   private readonly MIN_VALID_SCORE = 50;
-
-  constructor(private logger: Logger) {}
 
   /**
    * Score a transaction description against all categories.

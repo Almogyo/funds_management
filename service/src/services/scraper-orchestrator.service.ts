@@ -8,7 +8,6 @@ import { AccountRepository } from '../repositories/account.repository';
 import { CredentialRepository } from '../repositories/credential.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { CategoryRepository } from '../repositories/category.repository';
-import { TransactionCategoryRepository } from '../repositories/transaction-category.repository';
 import { randomUUID } from 'crypto';
 
 export interface ScraperJob {
@@ -44,7 +43,6 @@ export class ScraperOrchestratorService {
     private transactionRepository: TransactionRepository,
     private transactionService: TransactionService,
     private categoryRepository: CategoryRepository,
-    private transactionCategoryRepository: TransactionCategoryRepository,
     private logger: Logger
   ) {
     this.transactionProcessor = new TransactionProcessorService(this.logger);

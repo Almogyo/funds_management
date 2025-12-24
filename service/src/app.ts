@@ -119,7 +119,6 @@ export class App {
       transactionRepo,
       transactionService,
       categoryRepo,
-      transactionCategoryRepo,
       this.logger
     );
 

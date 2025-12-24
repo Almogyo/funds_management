@@ -46,7 +46,7 @@ describe('CredentialService', () => {
       const accountName = 'My Hapoalim Account';
       const companyId = 'hapoalim';
       const credentials = {
-        userCode: '12345',
+        username: '12345',
         password: 'secret',
       };
 
@@ -95,7 +95,7 @@ describe('CredentialService', () => {
   describe('validateCredentials', () => {
     it('should validate hapoalim credentials', () => {
       const validCreds = {
-        userCode: '12345',
+        username: '12345',
         password: 'secret',
       };
       const invalidCreds = {
@@ -103,7 +103,7 @@ describe('CredentialService', () => {
       };
 
       expect(credentialService.validateCredentials(validCreds, 'hapoalim')).toBe(true);
-      expect(credentialService.validateCredentials(invalidCreds, 'hapoalim')).toBe(false);
+      expect(credentialService.validateCredentials(invalidCreds as any, 'hapoalim')).toBe(false);
     });
 
     it('should validate leumi credentials', () => {
@@ -116,7 +116,7 @@ describe('CredentialService', () => {
       };
 
       expect(credentialService.validateCredentials(validCreds, 'leumi')).toBe(true);
-      expect(credentialService.validateCredentials(invalidCreds, 'leumi')).toBe(false);
+      expect(credentialService.validateCredentials(invalidCreds as any, 'leumi')).toBe(false);
     });
 
     it('should use default validation for unknown companies', () => {
@@ -129,7 +129,7 @@ describe('CredentialService', () => {
       };
 
       expect(credentialService.validateCredentials(validCreds, 'unknown-bank')).toBe(true);
-      expect(credentialService.validateCredentials(invalidCreds, 'unknown-bank')).toBe(false);
+      expect(credentialService.validateCredentials(invalidCreds as any, 'unknown-bank')).toBe(false);
     });
   });
 });

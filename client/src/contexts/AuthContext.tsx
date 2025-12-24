@@ -20,35 +20,70 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Initialize auth state on mount
   useEffect(() => {
     const storedUsername = localStorage.getItem('username');
     const storedUserId = localStorage.getItem('userId');
     const authenticated = apiClient.isAuthenticated();
+
+    console.log('[AuthProvider.init] Checking stored auth state:', {
+      authenticated,
+      storedUsername,
+      storedUserId,
+    });
 
     if (authenticated && storedUsername && storedUserId) {
       setIsAuthenticated(true);
       setUsername(storedUsername);
       setUserId(storedUserId);
     }
-
     setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const response = await apiClient.login(username, password);
-    setIsAuthenticated(true);
-    setUsername(response.username);
-    setUserId(response.userId);
+  const login = async (user: string, pass: string) => {
+    console.log('[AuthContext.login] Starting login for user:', user);
+    await apiClient.login(user, pass);
+    
+    const storedUsername = localStorage.getItem('username');
+    const storedUserId = localStorage.getItem('userId');
+    const authenticated = apiClient.isAuthenticated();
+
+    console.log('[AuthContext.login] After API, syncing state:', {
+      authenticated,
+      storedUsername,
+      storedUserId,
+    });
+
+    setIsAuthenticated(authenticated);
+    if (authenticated && storedUsername && storedUserId) {
+      setUsername(storedUsername);
+      setUserId(storedUserId);
+    }
   };
 
-  const register = async (username: string, password: string) => {
-    const response = await apiClient.register(username, password);
-    setIsAuthenticated(true);
-    setUsername(response.username);
-    setUserId(response.userId);
+  const register = async (user: string, pass: string) => {
+    console.log('[AuthContext.register] Starting registration for user:', user);
+    await apiClient.register(user, pass);
+    
+    const storedUsername = localStorage.getItem('username');
+    const storedUserId = localStorage.getItem('userId');
+    const authenticated = apiClient.isAuthenticated();
+
+    console.log('[AuthContext.register] After API, syncing state:', {
+      authenticated,
+      storedUsername,
+      storedUserId,
+    });
+
+    setIsAuthenticated(authenticated);
+    if (authenticated && storedUsername && storedUserId) {
+      setUsername(storedUsername);
+      setUserId(storedUserId);
+    }
   };
 
   const logout = async () => {
+    console.log('[AuthContext.logout] Logging out');
     await apiClient.logout();
     setIsAuthenticated(false);
     setUsername(null);

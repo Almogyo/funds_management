@@ -134,7 +134,7 @@ export class CategoryController {
    * This runs in the background without blocking the HTTP response
    * If forceMainCategoryId is provided, that category will be set as main for matching transactions
    */
-  private triggerRecategorization(forceMainCategoryId?: string): void {
+  private triggerRecategorization(_forceMainCategoryId?: string): void {
     // Use setImmediate to queue the work after the current operation completes
     setImmediate(async () => {
       try {

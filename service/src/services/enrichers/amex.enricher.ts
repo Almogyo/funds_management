@@ -9,8 +9,8 @@ import { IsracardEnricher } from './isracard.enricher';
 export class AmexEnricher implements IEnricher {
   private isracardEnricher: IsracardEnricher;
 
-  constructor(private logger: Logger) {
-    this.isracardEnricher = new IsracardEnricher(logger);
+  constructor(_logger: Logger) {
+    this.isracardEnricher = new IsracardEnricher(_logger);
   }
 
   async enrichTransaction(transaction: Transaction): Promise<EnrichmentData> {
