@@ -16,12 +16,13 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Stack,
 } from '@mui/material';
 import { apiClient } from '../services/api';
 import * as categoriesApi from '../services/categories';
 import TransactionCategoryDialog from '../components/Transactions/TransactionCategoryDialog';
-import { formatDate, formatCurrency } from '../utils/dateUtils';
-import type { Transaction } from '../types';
+import { formatDate, formatCurrency, getQuickFilterDates, formatDateForApi } from '../utils/dateUtils';
+import type { Transaction, TimeframeFilter as TimeframeFilterType } from '../types';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export const Transactions: React.FC = () => {
@@ -29,6 +30,7 @@ export const Transactions: React.FC = () => {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [timeframe, setTimeframe] = useState<TimeframeFilterType>(getQuickFilterDates('last_month'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -54,15 +56,22 @@ export const Transactions: React.FC = () => {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategories]);
+  }, [selectedCategories, timeframe]);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
 
     try {
+      const startDate = formatDateForApi(timeframe.startDate);
+      const endDate = formatDateForApi(timeframe.endDate);
+      
       const [transactionsData, accountsData, categoriesData] = await Promise.all([
-        apiClient.getTransactions({ categories: selectedCategories.length ? selectedCategories : undefined }),
+        apiClient.getTransactions({
+          startDate,
+          endDate,
+          categories: selectedCategories.length ? selectedCategories : undefined,
+        }),
         apiClient.getAccounts(),
         (await import('../services/categories')).getCategories(),
       ]);
@@ -176,7 +185,39 @@ export const Transactions: React.FC = () => {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: 'flex-start' }}>
+        <Stack direction="row" spacing={1} sx={{ flex: 1 }}>
+          <TextField
+            type="date"
+            label="Start Date"
+            size="small"
+            value={formatDateForApi(timeframe.startDate)}
+            onChange={(e) => {
+              const newDate = new Date(e.target.value);
+              setTimeframe({
+                ...timeframe,
+                startDate: newDate,
+              });
+            }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ flex: 1 }}
+          />
+          <TextField
+            type="date"
+            label="End Date"
+            size="small"
+            value={formatDateForApi(timeframe.endDate)}
+            onChange={(e) => {
+              const newDate = new Date(e.target.value);
+              setTimeframe({
+                ...timeframe,
+                endDate: newDate,
+              });
+            }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ flex: 1 }}
+          />
+        </Stack>
         <Autocomplete
           multiple
           options={categories}
@@ -187,7 +228,7 @@ export const Transactions: React.FC = () => {
           renderInput={(params) => <TextField {...params} label="Filter by categories" size="small" />}
           sx={{ minWidth: 300 }}
         />
-      </Box>
+      </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
