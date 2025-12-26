@@ -26,6 +26,7 @@ export interface Account {
   alias: string;
   active: boolean;
   accountType: 'bank' | 'credit';
+  card6Digits?: string | null;
   createdAt: Date;
   updatedAt: Date;
   lastScrapedAt?: Date;

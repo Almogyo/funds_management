@@ -85,12 +85,18 @@ export const ScrapeDialog: React.FC<ScrapeDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Scrape Transactions</DialogTitle>
+      <DialogTitle>
+        {accountIds && accountIds.length === 1 
+          ? 'Scrape Account' 
+          : 'Scrape Transactions'}
+      </DialogTitle>
       <DialogContent>
         {!result && (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Pull transaction data from your bank and credit card accounts.
+              {accountIds && accountIds.length === 1
+                ? 'Pull transaction data from this account.'
+                : 'Pull transaction data from your bank and credit card accounts.'}
             </Typography>
 
             <Typography variant="subtitle2" gutterBottom>

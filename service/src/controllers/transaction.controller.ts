@@ -223,7 +223,8 @@ export class TransactionController {
       }
 
       const { id: transactionId } = req.params;
-      const { categoryId } = req.body;
+      // Support both { categoryId } and { category } for backwards compatibility
+      const categoryId = req.body.categoryId || req.body.category;
 
       if (!categoryId) {
         res.status(400).json({ error: 'Category ID is required' });
@@ -244,8 +245,9 @@ export class TransactionController {
 
       // Use the service to set the main category
       // The service handles all business logic: verifying category exists,
-      // updating junction table, and syncing the main_category_id column
-      this.transactionService.setMainCategory(transactionId, categoryId);
+      // attaching category if not already attached, updating junction table,
+      // and syncing the main_category_id column
+      this.transactionService.setMainCategory(transactionId, categoryId, true);
 
       this.logger.info(`Set main category for transaction`, {
         transactionId,

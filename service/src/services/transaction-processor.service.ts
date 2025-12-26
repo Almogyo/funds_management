@@ -14,6 +14,7 @@ export interface ProcessedTransaction {
   installmentTotal: number | null;
   identifier: string | null;
   rawJson: string;
+  enrichmentData?: Record<string, any>; // Enrichment data from scraper (sector, categoryId, etc.)
 }
 
 export class TransactionProcessorService {
@@ -85,6 +86,12 @@ export class TransactionProcessorService {
       identifier
     );
 
+    // Extract enrichment data from transaction
+    // For Isracard/Amex: additionalInformation.sector (from getExtraScrapTransaction)
+    // For Max: categoryId, arn, planTypeId (already in transaction)
+    // For Visa Cal: merchantID, merchantAddress, etc. (already in transaction)
+    const enrichmentData = this.extractEnrichmentData(txn);
+
     return {
       txnHash,
       date,
@@ -97,7 +104,51 @@ export class TransactionProcessorService {
       installmentTotal,
       identifier,
       rawJson: JSON.stringify(txn),
+      enrichmentData,
     };
+  }
+
+  /**
+   * Extract enrichment data from scraped transaction.
+   * Handles data from library's additionalTransactionInformation feature.
+   */
+  private extractEnrichmentData(txn: BankTransaction): Record<string, any> | undefined {
+    const enrichment: Record<string, any> = {};
+    const txnAny = txn as any;
+
+    // Isracard/Amex: sector from additionalInformation (via getExtraScrapTransaction)
+    if (txnAny.additionalInformation?.sector) {
+      enrichment.sector = txnAny.additionalInformation.sector;
+    }
+
+    // Max: categoryId, arn, planTypeId (already in transaction object)
+    if (txnAny.categoryId !== undefined) {
+      enrichment.maxCategoryId = txnAny.categoryId;
+    }
+    if (txnAny.arn) {
+      enrichment.arn = txnAny.arn;
+    }
+    if (txnAny.planTypeId !== undefined) {
+      enrichment.planTypeId = txnAny.planTypeId;
+    }
+    if (txnAny.planName) {
+      enrichment.planName = txnAny.planName;
+    }
+
+    // Visa Cal: merchant metadata (already in transaction object)
+    if (txnAny.merchantID || txnAny.merchantAddress || txnAny.merchantPhoneNo || txnAny.branchCodeDesc) {
+      enrichment.merchantMetadata = {
+        merchantID: txnAny.merchantID,
+        merchantAddress: txnAny.merchantAddress,
+        merchantPhoneNo: txnAny.merchantPhoneNo,
+        branchCodeDesc: txnAny.branchCodeDesc,
+      };
+    }
+    if (txnAny.trnTypeCode) {
+      enrichment.trnTypeCode = txnAny.trnTypeCode;
+    }
+
+    return Object.keys(enrichment).length > 0 ? enrichment : undefined;
   }
 
   private normalizeDate(date: string | Date): Date {

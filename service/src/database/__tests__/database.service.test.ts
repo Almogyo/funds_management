@@ -142,7 +142,7 @@ describe('DatabaseService', () => {
   });
 
   describe('backup', () => {
-    it('should create backup of database', () => {
+    it('should create backup of database', async () => {
       const dbService = new DatabaseService(testDbPath);
       const backupDir = path.join(process.cwd(), 'test-backup');
       const backupPath = path.join(backupDir, 'backup.db');
@@ -161,7 +161,8 @@ describe('DatabaseService', () => {
       }
 
       // Use better-sqlite3 backup method properly
-      const success = db.backup(backupPath).pages === 0 ? true : false;
+      const backupResult = await dbService.backup(backupPath);
+      const success = backupResult.pages > 0;
 
       expect(fs.existsSync(backupPath) || success).toBe(true);
 

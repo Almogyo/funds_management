@@ -17,18 +17,39 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'npm'
+          # Don't use automatic cache since we have separate package-lock.json files
+          # We'll cache manually below
+
+      - name: Cache backend dependencies
+        uses: actions/cache@v3
+        with:
+          path: service/node_modules
+          key: ${{ runner.os }}-node-service-${{ hashFiles('service/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-service-
+
+      - name: Cache frontend dependencies
+        uses: actions/cache@v3
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-node-client-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-client-
 
       - name: Install backend dependencies
+        working-directory: service
         run: npm ci
 
       - name: Install frontend dependencies
-        run: cd client && npm ci
+        working-directory: client
+        run: npm ci
 
       - name: Build TypeScript (backend)
+        working-directory: service
         run: npm run build
 
       - name: Start backend server
+        working-directory: service
         run: |
           npm run start &
           echo "Waiting for backend to start..."
@@ -55,6 +76,7 @@ jobs:
           VITE_API_URL: http://localhost:3000
 
       - name: Run backend tests
+        working-directory: service
         run: npm test
 
 # Understand if necessary

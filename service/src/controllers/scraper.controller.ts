@@ -106,6 +106,8 @@ export class ScraperController {
       const options = {
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : new Date(),
+        timeout: 180000, // 3 minutes - increased for credit card scrapers that need more time for navigation
+        showBrowser: true,
       };
 
       let job;

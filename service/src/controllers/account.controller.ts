@@ -47,8 +47,10 @@ export class AccountController {
           alias: a.alias,
           active: a.active,
           accountType: a.accountType,
+          card6Digits: a.card6Digits,
           lastScrapedAt: a.lastScrapedAt ? a.lastScrapedAt.getTime() : undefined,
           createdAt: a.createdAt.getTime(),
+          updatedAt: a.updatedAt.getTime(),
         })),
       });
     } catch (error) {
@@ -93,17 +95,18 @@ export class AccountController {
    *             type: object
    *             required:
    *               - accountNumber
-   *               - alias
    *               - username
    *               - password
+   *             optional:
+   *               - alias (for credit cards, defaults to accountNumber if not provided)
    *             properties:
    *               accountNumber:
    *                 type: string
-   *                 description: Account or card number
+   *                 description: Account number (for banks) or card/account identifier (for credit cards). For credit cards, this is optional and used only for display/identification purposes, not for authentication.
    *                 example: "12345"
    *               alias:
    *                 type: string
-   *                 description: Friendly name for this account
+   *                 description: Friendly name for this account. For credit cards, this is optional and will default to the account identifier if not provided.
    *                 example: "My Hapoalim Account"
    *               username:
    *                 type: string
@@ -131,32 +134,73 @@ export class AccountController {
       }
 
       const { companyId } = req.params;
-      const { accountNumber, alias, username, password } = req.body;
+      const { accountNumber, alias, username, password, card6Digits, id } = req.body;
 
-      if (!accountNumber || !alias || !username || !password) {
+      // Validate required fields based on account type
+      const isCreditCard = ['isracard', 'amex', 'visaCal', 'max'].includes(companyId);
+      
+      if (!accountNumber || !password) {
         res.status(400).json({
-          error: 'Account number, alias, username, and password are required',
+          error: 'Account number and password are required',
         });
         return;
       }
 
-      const userCredentials: UserCredentialInput = { username, password };
-
-      if (!this.credentialService.validateCredentials(userCredentials, companyId)) {
-        res.status(400).json({ error: 'Invalid credentials' });
+      // For credit cards, alias is optional - use accountNumber if not provided
+      // For banks, alias is required
+      const finalAlias = isCreditCard ? (alias || accountNumber) : alias;
+      if (!finalAlias) {
+        res.status(400).json({
+          error: 'Alias is required for bank accounts',
+        });
         return;
       }
 
-      const account = this.accountRepository.create(userId, accountNumber, companyId, alias, true);
+      // Build credentials object based on account type
+      const userCredentials: UserCredentialInput = { 
+        username: username || id, // For Isracard, id is used instead of username
+        password 
+      };
+
+      // Add credit card specific fields
+      if (isCreditCard && card6Digits) {
+        userCredentials.card6Digits = card6Digits;
+      }
+      if (companyId === 'isracard' && id) {
+        userCredentials.id = id;
+      }
+
+      // Validate credentials
+      if (!this.credentialService.validateCredentials(userCredentials, companyId)) {
+        const requiredFields = companyId === 'isracard' 
+          ? 'id (user identification number), card6Digits, and password'
+          : companyId === 'amex'
+          ? 'username, card6Digits, and password'
+          : 'username and password';
+        res.status(400).json({ 
+          error: `Invalid credentials. Required: ${requiredFields}` 
+        });
+        return;
+      }
+
+      // Create account with card6Digits if provided
+      const account = this.accountRepository.create(
+        userId, 
+        accountNumber, 
+        companyId, 
+        finalAlias, 
+        true,
+        card6Digits || null
+      );
 
       const preparedCreds = this.credentialService.prepareStoredCredential(
         userId,
-        alias,
+        finalAlias, // Use finalAlias (which defaults to accountNumber for credit cards)
         companyId,
         userCredentials
       );
 
-      this.credentialRepository.create(
+      const savedCredential = this.credentialRepository.create(
         preparedCreds.userId,
         preparedCreds.accountName,
         preparedCreds.companyId,
@@ -165,10 +209,30 @@ export class AccountController {
         preparedCreds.salt
       );
 
+      // Verify credentials were saved correctly
+      const verifyCredential = this.credentialRepository.findByUserIdAndAccountName(
+        userId,
+        finalAlias
+      );
+
+      if (!verifyCredential) {
+        this.logger.error('Credential verification failed after creation', {
+          userId,
+          accountId: account.id,
+          accountAlias: finalAlias,
+          credentialAccountName: preparedCreds.accountName,
+        });
+        throw new Error('Failed to verify credentials were saved');
+      }
+
       this.logger.info('Account created', {
         userId,
         accountId: account.id,
         companyId,
+        accountType: account.accountType,
+        accountAlias: account.alias,
+        credentialAccountName: savedCredential.accountName,
+        credentialId: savedCredential.id,
       });
 
       res.status(201).json({
@@ -179,6 +243,8 @@ export class AccountController {
           companyId: account.companyId,
           alias: account.alias,
           active: account.active,
+          accountType: account.accountType,
+          card6Digits: account.card6Digits,
         },
       });
     } catch (error) {

@@ -13,6 +13,12 @@ export class CredentialRepository {
     iv: string,
     salt: string
   ): EncryptedCredential {
+    // Check if credentials already exist for this user/accountName combination
+    const existing = this.findByUserIdAndAccountName(userId, accountName);
+    if (existing) {
+      throw new Error(`Credentials already exist for account name: ${accountName}`);
+    }
+
     const id = randomUUID();
     const now = Date.now();
 
@@ -21,7 +27,14 @@ export class CredentialRepository {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, userId, accountName, companyId, encryptedData, iv, salt, now, now);
+    try {
+      stmt.run(id, userId, accountName, companyId, encryptedData, iv, salt, now, now);
+    } catch (error: any) {
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new Error(`Credentials already exist for account name: ${accountName}`);
+      }
+      throw error;
+    }
 
     return {
       id,

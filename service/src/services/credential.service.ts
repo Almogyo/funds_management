@@ -3,6 +3,8 @@ import { EncryptionService, EncryptionResult, DecryptionInput } from './encrypti
 export interface UserCredentialInput {
   username: string;
   password: string;
+  card6Digits?: string; // For Isracard/Amex
+  id?: string; // For Isracard (user identification number)
 }
 
 export interface CredentialData {
@@ -10,6 +12,8 @@ export interface CredentialData {
   password?: string;
   userCode?: string;
   nationalId?: string;
+  id?: string; // For Isracard
+  card6Digits?: string; // For Isracard/Amex
   [key: string]: string | undefined;
 }
 
@@ -46,7 +50,18 @@ export class CredentialService {
     if (companyId === 'hapoalim') {
       normalized.userCode = input.username;
       normalized.password = input.password;
+    } else if (companyId === 'isracard') {
+      // Isracard requires: id (user identification number), card6Digits, password
+      normalized.id = input.id || input.username; // Use id if provided, fallback to username
+      normalized.card6Digits = input.card6Digits;
+      normalized.password = input.password;
+    } else if (companyId === 'amex') {
+      // Amex requires: username (user identification number), card6Digits, password
+      normalized.username = input.username;
+      normalized.card6Digits = input.card6Digits;
+      normalized.password = input.password;
     } else {
+      // Visa Cal, Max, and banks use username/password
       normalized.username = input.username;
       normalized.password = input.password;
     }
@@ -81,7 +96,23 @@ export class CredentialService {
     });
   }
 
-  validateCredentials(input: UserCredentialInput, _companyId: string): boolean {
-    return !!(input.username && input.password);
+  validateCredentials(input: UserCredentialInput, companyId: string): boolean {
+    // Basic validation - all require password
+    if (!input.password) {
+      return false;
+    }
+
+    // Isracard requires: id, card6Digits, password
+    if (companyId === 'isracard') {
+      return !!(input.id || input.username) && !!input.card6Digits && !!input.password;
+    }
+
+    // Amex requires: username, card6Digits, password
+    if (companyId === 'amex') {
+      return !!input.username && !!input.card6Digits && !!input.password;
+    }
+
+    // Visa Cal, Max, and banks require: username, password
+    return !!input.username && !!input.password;
   }
 }

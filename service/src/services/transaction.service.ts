@@ -94,21 +94,47 @@ export class TransactionService {
 
   /**
    * Set the main category for a transaction
+   * If the category is not already attached, it will be attached first
+   * Removes Unknown category if it exists (since Unknown is only a default)
    */
-  setMainCategory(transactionId: string, categoryId: string): void {
+  setMainCategory(transactionId: string, categoryId: string, isManual: boolean = true): void {
     // Verify category exists
     const category = this.categoryRepository.findById(categoryId);
     if (!category) {
       throw new Error(`Category with ID ${categoryId} not found`);
     }
 
-    // Set as main in junction table
-    this.transactionCategoryRepository.setAsMain(transactionId, categoryId);
+    // Get existing categories
+    const existingCategories = this.transactionCategoryRepository.getByTransactionId(transactionId);
+    const categoryAlreadyAttached = existingCategories.some(cat => cat.categoryId === categoryId);
+
+    // Find and remove Unknown category if it exists (Unknown is only a default placeholder)
+    const unknownCategory = this.categoryRepository.findByName('Unknown');
+    if (unknownCategory) {
+      const hasUnknown = existingCategories.some(cat => cat.categoryId === unknownCategory.id);
+      if (hasUnknown) {
+        this.transactionCategoryRepository.detach(transactionId, unknownCategory.id);
+        this.logger.debug(`Removed Unknown category from transaction ${transactionId}`);
+      }
+    }
+
+    // If not attached, attach it first
+    if (!categoryAlreadyAttached) {
+      this.transactionCategoryRepository.attach(transactionId, categoryId, isManual, true);
+    } else {
+      // If already attached, just set it as main
+      this.transactionCategoryRepository.setAsMain(transactionId, categoryId);
+    }
 
     // Set main category ID in transactions table
     this.transactionRepository.setMainCategoryId(transactionId, categoryId);
 
-    this.logger.info(`Set main category for transaction ${transactionId} to ${category.name}`);
+    this.logger.info(`Set main category for transaction ${transactionId} to ${category.name}`, {
+      transactionId,
+      categoryId,
+      wasAlreadyAttached: categoryAlreadyAttached,
+      isManual,
+    });
   }
 
   /**

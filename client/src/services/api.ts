@@ -149,17 +149,21 @@ class ApiClient {
   async createAccount(
     companyId: CompanyId,
     accountNumber: string,
-    alias: string,
+    alias: string | undefined,
     username: string,
-    password: string
+    password: string,
+    card6Digits?: string,
+    id?: string
   ): Promise<Account> {
     const response = await this.client.post<{ account: Account; message: string }>(
       `/api/accounts/${companyId}`,
       {
         accountNumber,
-        alias,
+        ...(alias && { alias }),
         username,
         password,
+        ...(card6Digits && { card6Digits }),
+        ...(id && { id }),
       }
     );
     return response.data.account;
@@ -198,8 +202,8 @@ class ApiClient {
     return response.data.transactions;
   }
 
-  async updateTransactionCategory(id: string, category: string): Promise<void> {
-    await this.client.put(`/api/transactions/${id}/category`, { category });
+  async updateTransactionCategory(id: string, categoryId: string): Promise<void> {
+    await this.client.put(`/api/transactions/${id}/category`, { categoryId });
   }
 
   async getSummary(startDate: string, endDate: string, accountIds?: string[]): Promise<AnalyticsSummary> {

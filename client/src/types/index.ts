@@ -13,8 +13,10 @@ export interface Account {
   alias: string;
   active: boolean;
   accountType: 'bank' | 'credit';
+  card6Digits?: string | null;
   lastScrapedAt?: number;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export type CompanyId =
@@ -39,6 +41,7 @@ export interface Transaction {
   currency: string;
   description: string;
   categories?: TransactionCategory[];
+  mainCategoryId?: string | null;
   status: 'completed' | 'pending';
   installmentNumber?: number;
   installmentTotal?: number;
@@ -50,6 +53,7 @@ export interface TransactionCategory {
   categoryId: string;
   categoryName: string;
   isManual: boolean;
+  isMain?: boolean;
   createdAt: number;
 }
 
@@ -122,4 +126,16 @@ export interface LogEntry {
   level: 'info' | 'error' | 'warn' | 'debug';
   message: string;
   context?: Record<string, any>;
+}
+
+export interface CreditCardAccount {
+  id: string;
+  username: string;
+  password: string;
+  card6Digits: string;
+  otpCodeRetriever?: () => Promise<string>;
+  alias?: string;
+  companyId: string;
+  active: boolean;
+  lastScrapedAt?: string;
 }

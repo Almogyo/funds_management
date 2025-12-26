@@ -158,13 +158,37 @@ export class CategorizationService {
 
   /**
    * Extract vendor category from transaction enrichment data.
+   * Checks both the enrichment_data column and rawJson for enrichment data.
    */
   private extractVendorCategory(transaction: Transaction): string | null {
     try {
-      const json = JSON.parse(transaction.rawJson);
-      const enrichmentData = json.enrichmentData || {};
+      // First, try to get enrichment data from the database column
+      // (if transaction was loaded from DB with enrichment_data)
+      let enrichmentData: Record<string, any> | null = null;
+      
+      // Check if transaction has enrichment_data directly (from DB query)
+      if ((transaction as any).enrichmentData) {
+        try {
+          enrichmentData = typeof (transaction as any).enrichmentData === 'string'
+            ? JSON.parse((transaction as any).enrichmentData)
+            : (transaction as any).enrichmentData;
+        } catch {
+          // Ignore parse errors
+        }
+      }
 
-      // Try Isracard/Amex sector
+      // Fallback: try to extract from rawJson
+      if (!enrichmentData) {
+        const json = JSON.parse(transaction.rawJson);
+        enrichmentData = json.enrichmentData || {};
+      }
+
+      // Ensure enrichmentData is not null before accessing properties
+      if (!enrichmentData) {
+        return null;
+      }
+
+      // Try Isracard/Amex sector (from library's additionalTransactionInformation)
       if (enrichmentData.sector) {
         return enrichmentData.sector;
       }

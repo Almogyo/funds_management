@@ -30,7 +30,8 @@ export class TransactionRepository {
     status: 'completed' | 'pending',
     installmentInfo: InstallmentInfo | null,
     rawJson: string,
-    mainCategoryId?: string | null
+    mainCategoryId?: string | null,
+    enrichmentData?: Record<string, any>
   ): Transaction {
     const id = randomUUID();
     const createdAt = Date.now();
@@ -39,10 +40,13 @@ export class TransactionRepository {
       INSERT INTO transactions (
         id, account_id, txn_hash, date, processed_date, amount, currency,
         description, status, installment_number, installment_total,
-        raw_json, main_category_id, created_at
+        raw_json, main_category_id, enrichment_data, enriched_at, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+
+    const enrichmentJson = enrichmentData ? JSON.stringify(enrichmentData) : null;
+    const enrichedAt = enrichmentData ? new Date().toISOString() : null;
 
     stmt.run(
       id,
@@ -58,6 +62,8 @@ export class TransactionRepository {
       installmentInfo?.total || null,
       rawJson,
       mainCategoryId || null,
+      enrichmentJson,
+      enrichedAt,
       createdAt
     );
 
@@ -81,7 +87,7 @@ export class TransactionRepository {
 
   findById(id: string): Transaction | null {
     const stmt = this.db.prepare(`
-      SELECT * FROM transactions WHERE id = ?
+      SELECT *, enrichment_data FROM transactions WHERE id = ?
     `);
 
     const row = stmt.get(id) as any;
@@ -90,7 +96,7 @@ export class TransactionRepository {
 
   findByHash(accountId: string, txnHash: string): Transaction | null {
     const stmt = this.db.prepare(`
-      SELECT * FROM transactions WHERE account_id = ? AND txn_hash = ?
+      SELECT *, enrichment_data FROM transactions WHERE account_id = ? AND txn_hash = ?
     `);
 
     const row = stmt.get(accountId, txnHash) as any;
@@ -258,7 +264,19 @@ export class TransactionRepository {
           }
         : null;
 
-    return {
+    // Parse enrichment data if available
+    let enrichmentData: Record<string, any> | undefined;
+    if (row.enrichment_data) {
+      try {
+        enrichmentData = typeof row.enrichment_data === 'string'
+          ? JSON.parse(row.enrichment_data)
+          : row.enrichment_data;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    const transaction: Transaction = {
       id: row.id,
       accountId: row.account_id,
       txnHash: row.txn_hash,
@@ -274,6 +292,13 @@ export class TransactionRepository {
       rawJson: row.raw_json,
       createdAt: new Date(row.created_at),
     };
+
+    // Attach enrichment data to transaction object for categorization service
+    if (enrichmentData) {
+      (transaction as any).enrichmentData = enrichmentData;
+    }
+
+    return transaction;
   }
 
   /**

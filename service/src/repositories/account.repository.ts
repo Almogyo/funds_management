@@ -7,30 +7,32 @@ export class AccountRepository {
 
   create(
     userId: string,
-    accountNumber: string,
+    identifier: string,
     companyId: string,
     alias: string,
-    active = true
+    active = true,
+    card6Digits: string | null = null,
   ): Account {
     const id = randomUUID();
     const now = Date.now();
     const accountType = this.getAccountType(companyId);
 
     const stmt = this.db.prepare(`
-      INSERT INTO accounts (id, user_id, account_number, company_id, alias, active, account_type, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO accounts (id, user_id, account_number, company_id, alias, active, account_type, card_6_digits, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, userId, accountNumber, companyId, alias, active ? 1 : 0, accountType, now, now);
+    stmt.run(id, userId, identifier, companyId, alias, active ? 1 : 0, accountType, card6Digits, now, now);
 
     return {
       id,
       userId,
-      accountNumber,
+      accountNumber: identifier,
       companyId,
       alias,
       active,
       accountType,
+      card6Digits,
       createdAt: new Date(now),
       updatedAt: new Date(now),
     };
@@ -38,7 +40,7 @@ export class AccountRepository {
 
   findById(id: string): Account | null {
     const stmt = this.db.prepare(`
-      SELECT id, user_id, account_number, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
+      SELECT id, user_id, account_number, card_6_digits, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
       FROM accounts
       WHERE id = ?
     `);
@@ -49,7 +51,7 @@ export class AccountRepository {
 
   findByUserId(userId: string): Account[] {
     const stmt = this.db.prepare(`
-      SELECT id, user_id, account_number, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
+      SELECT id, user_id, account_number, card_6_digits, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
       FROM accounts
       WHERE user_id = ?
       ORDER BY alias
@@ -61,7 +63,7 @@ export class AccountRepository {
 
   findActiveByUserId(userId: string): Account[] {
     const stmt = this.db.prepare(`
-      SELECT id, user_id, account_number, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
+      SELECT id, user_id, account_number, card_6_digits, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
       FROM accounts
       WHERE user_id = ? AND active = 1
       ORDER BY alias
@@ -76,7 +78,7 @@ export class AccountRepository {
     
     const placeholders = ids.map(() => '?').join(',');
     const stmt = this.db.prepare(`
-      SELECT id, user_id, account_number, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
+      SELECT id, user_id, account_number, card_6_digits, company_id, alias, active, account_type, created_at, updated_at, last_scraped_at
       FROM accounts
       WHERE id IN (${placeholders})
     `);
@@ -151,6 +153,7 @@ export class AccountRepository {
       id: row.id,
       userId: row.user_id,
       accountNumber: row.account_number,
+      card6Digits: row.card_6_digits,
       companyId: row.company_id,
       alias: row.alias,
       active: row.active === 1,

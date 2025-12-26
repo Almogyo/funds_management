@@ -8,6 +8,7 @@ import { AccountRepository } from '../repositories/account.repository';
 import { CredentialRepository } from '../repositories/credential.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { CategoryRepository } from '../repositories/category.repository';
+import { CategoryScoreRepository } from '../repositories/category-score.repository';
 import { randomUUID } from 'crypto';
 
 export interface ScraperJob {
@@ -43,12 +44,15 @@ export class ScraperOrchestratorService {
     private transactionRepository: TransactionRepository,
     private transactionService: TransactionService,
     private categoryRepository: CategoryRepository,
+    private categoryScoreRepository: CategoryScoreRepository,
     private logger: Logger
   ) {
     this.transactionProcessor = new TransactionProcessorService(this.logger);
     this.categorizationService = new CategorizationService(
       this.categoryRepository,
-      this.transactionRepository
+      this.transactionRepository,
+      this.categoryScoreRepository,
+      this.logger
     );
   }
 
@@ -131,6 +135,18 @@ export class ScraperOrchestratorService {
           continue;
         }
 
+        // Debug: List all credentials for this user to help diagnose
+        const allUserCredentials = this.credentialRepository.findByUserId(job.userId);
+        this.logger.debug(`Looking for credentials`, {
+          accountId,
+          accountAlias: account.alias,
+          userId: job.userId,
+          availableCredentials: allUserCredentials.map(c => ({
+            accountName: c.accountName,
+            companyId: c.companyId,
+          })),
+        });
+
         const credential = this.credentialRepository.findByUserIdAndAccountName(
           job.userId,
           account.alias
@@ -141,6 +157,9 @@ export class ScraperOrchestratorService {
             jobId: job.id,
             accountId,
             accountName: account.alias,
+            accountAlias: account.alias,
+            userId: job.userId,
+            availableAccountNames: allUserCredentials.map(c => c.accountName),
           });
           job.results.push({
             accountId,
@@ -155,6 +174,18 @@ export class ScraperOrchestratorService {
         }
 
         const decryptedCredentials = this.credentialService.retrieveCredentials(credential);
+
+        // Log credential structure for debugging (without sensitive values)
+        const credentialKeys = Object.keys(decryptedCredentials);
+        this.logger.debug(`Decrypted credentials for scraping`, {
+          accountId,
+          companyId: account.companyId,
+          credentialFields: credentialKeys,
+          hasId: !!decryptedCredentials.id,
+          hasCard6Digits: !!decryptedCredentials.card6Digits,
+          hasPassword: !!decryptedCredentials.password,
+          hasUsername: !!decryptedCredentials.username,
+        });
 
         accountsToScrape.push({
           accountId,
@@ -211,9 +242,7 @@ export class ScraperOrchestratorService {
               txn.txnHash
             );
             if (!existingTxn) {
-              // Call with string description for synchronous categorization (backwards compatible)
-              const categoryIds = this.categorizationService.categorizeTransaction(txn.description) as string[];
-
+              // Create transaction with enrichment data if available
               const createdTxn = this.transactionRepository.create(
                 account.accountId,
                 txn.txnHash,
@@ -226,8 +255,25 @@ export class ScraperOrchestratorService {
                 txn.installmentNumber !== null && txn.installmentTotal !== null
                   ? { number: txn.installmentNumber, total: txn.installmentTotal }
                   : null,
-                txn.rawJson
+                txn.rawJson,
+                undefined, // mainCategoryId - will be set after categorization
+                txn.enrichmentData // Pass enrichment data from scraper
               );
+
+              // Categorize transaction using enrichment data if available
+              // The categorization service will extract vendor category from enrichment data
+              // and use it in the categorization hierarchy
+              const categorizationResult = await this.categorizationService.categorizeTransaction(createdTxn);
+              
+              // Handle both old (string[]) and new (CategorizationResult) return types
+              let categoryIds: string[];
+              if (Array.isArray(categorizationResult)) {
+                // Old API: simple string array
+                categoryIds = categorizationResult;
+              } else {
+                // New API: CategorizationResult with allCategoryIds
+                categoryIds = categorizationResult.allCategoryIds;
+              }
 
               // Use TransactionService to attach categories and set main category
               // The service handles all business logic: marking first as main,

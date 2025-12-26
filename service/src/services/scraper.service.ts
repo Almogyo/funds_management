@@ -72,15 +72,36 @@ export class ScraperService {
     });
 
     try {
-      const scraperOptions = {
+      // Credit card scrapers (especially Isracard) may need more time for navigation
+      // Banks also need sufficient timeout for browser-based authentication
+      // Default timeout: 3 minutes for credit cards, 3 minutes for banks (increased for browser login)
+      const isCreditCard = ['isracard', 'amex', 'visaCal', 'max'].includes(companyId);
+      const defaultTimeout = isCreditCard ? 180000 : 180000; // 3 min for both (banks need more time for browser login)
+      
+      const scraperOptions: any = {
         companyId: this.getCompanyType(companyId),
         startDate: options.startDate,
         futureMonthsToScrape: options.futureMonths || 0,
         combineInstallments: options.combineInstallments || false,
-        timeout: options.timeout || 120000,
+        timeout: options.timeout || defaultTimeout,
         verbose: false,
         showBrowser: options.showBrowser !== undefined ? options.showBrowser : true,
+        // Enable built-in enrichment for Isracard/Amex (fetches sector data via getExtraScrapTransaction)
+        additionalTransactionInformation: ['isracard', 'amex'].includes(companyId),
       };
+
+      // Add navigation timeout option for all scrapers (banks and credit cards)
+      // This helps with slow-loading login pages and login wizards
+      // Banks (like Hapoalim, Leumi) also need this timeout for their browser-based authentication
+      scraperOptions.navigationTimeout = 60000; // 60 seconds for navigation
+
+      this.logger.scraperLog(`Scraper timeout set`, accountName, {
+        companyId,
+        timeout: scraperOptions.timeout,
+        navigationTimeout: scraperOptions.navigationTimeout,
+        isCreditCard,
+        additionalTransactionInformation: scraperOptions.additionalTransactionInformation,
+      });
 
       this.logger.scraperLog(`Creating scraper instance`, accountName, {
         companyId,
@@ -96,7 +117,29 @@ export class ScraperService {
         });
       });
 
-      this.logger.scraperLog(`Executing scrape`, accountName, { companyId });
+      // Log credential structure (without sensitive values) for debugging
+      const credentialKeys = Object.keys(credentials);
+      const credentialStructure = credentialKeys.reduce((acc, key) => {
+        const value = credentials[key];
+        if (value) {
+          // Show length and first/last char for verification (not full value)
+          const str = String(value);
+          acc[key] = `[${str.length} chars, starts: ${str[0]}, ends: ${str[str.length - 1]}]`;
+        } else {
+          acc[key] = 'missing';
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      
+      this.logger.scraperLog(`Executing scrape with credentials`, accountName, { 
+        companyId,
+        credentialFields: credentialKeys,
+        credentialStructure,
+        hasId: !!credentials.id,
+        hasCard6Digits: !!credentials.card6Digits,
+        hasPassword: !!credentials.password,
+        hasUsername: !!credentials.username,
+      });
 
       const result: ScraperScrapingResult = await scraper.scrape(credentials as any);
 

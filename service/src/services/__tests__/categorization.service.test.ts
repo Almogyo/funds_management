@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { DatabaseService } from '../../database/database.service';
-import { CategorizationService } from '../categorization.service';
+import { CategorizationService, CategorizationResult } from '../categorization.service';
 import { TransactionRepository } from '../../repositories/transaction.repository';
 import { TransactionCategoryRepository } from '../../repositories/transaction-category.repository';
 import { CategoryRepository } from '../../repositories/category.repository';
@@ -15,7 +15,6 @@ describe('CategorizationService', () => {
   let logger: Logger;
   let categorizationService: CategorizationService;
   let categoryRepo: CategoryRepository;
-  let testAccountId: string;
 
   beforeEach(() => {
     if (fs.existsSync(testDbPath)) {
@@ -42,10 +41,9 @@ describe('CategorizationService', () => {
     const user = userRepo.create('testuser', 'password-hash');
     const testUserId = user.id;
 
-    // Create test account
+    // Create test account (for potential future use)
     const accountRepo = new AccountRepository(db);
-    const account = accountRepo.create(testUserId, '12345', 'hapoalim', 'Test Account');
-    testAccountId = account.id;
+    accountRepo.create(testUserId, '12345', 'hapoalim', 'Test Account');
   });
 
   afterEach(() => {
@@ -88,10 +86,14 @@ describe('CategorizationService', () => {
 
       const result = await categorizationService.categorizeTransaction(transaction);
 
+      // When called with Transaction object, it returns CategorizationResult
       expect(result).toHaveProperty('mainCategoryId');
       expect(result).toHaveProperty('allCategoryIds');
       expect(result).toHaveProperty('decision');
-      expect(Array.isArray(result.allCategoryIds)).toBe(true);
+      
+      // Type assertion since we know it's CategorizationResult when called with Transaction
+      const categorizationResult = result as CategorizationResult;
+      expect(Array.isArray(categorizationResult.allCategoryIds)).toBe(true);
     });
   });
 

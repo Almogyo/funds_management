@@ -117,12 +117,13 @@ export const Transactions: React.FC = () => {
     setCategoryDialogOpen(true);
   };
 
-  const handleAssignExistingCategory = async (_transactionId: string, _categoryId: string) => {
+  const handleAssignExistingCategory = async (transactionId: string, categoryId: string) => {
     try {
-      // Just close the dialog - categories are managed automatically via category creation/update
+      await apiClient.updateTransactionCategory(transactionId, categoryId);
       setCategoryDialogOpen(false);
       setSelectedTransaction(null);
-      // In the future, this can support manual category attachment via a new API endpoint
+      // Refresh transactions to show updated category
+      fetchData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to assign category');
     }
@@ -235,29 +236,26 @@ export const Transactions: React.FC = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {transaction.categories && transaction.categories.length > 0 ? (
-                              transaction.categories.map((cat) => (
-                                <Chip
-                                  key={cat.id}
-                                  label={`${cat.categoryName}${cat.isManual ? ' (manual)' : ''}`}
-                                  size="small"
-                                  color={getCategoryColor(cat.categoryName)}
-                                  onClick={() => handleCategoryClick(transaction)}
-                                  sx={{ cursor: 'pointer' }}
-                                  variant={cat.isManual ? 'filled' : 'outlined'}
-                                />
-                              ))
-                            ) : (
+                          {(() => {
+                            // Show only the main category
+                            const mainCategory = transaction.categories?.find(cat => cat.isMain) ||
+                              (transaction.mainCategoryId 
+                                ? transaction.categories?.find(cat => cat.categoryId === transaction.mainCategoryId)
+                                : null);
+                            
+                            const categoryName = mainCategory?.categoryName || 'Unknown';
+                            
+                            return (
                               <Chip
-                                label="Unknown"
+                                label={categoryName}
                                 size="small"
-                                color="default"
+                                color={getCategoryColor(categoryName)}
                                 onClick={() => handleCategoryClick(transaction)}
                                 sx={{ cursor: 'pointer' }}
+                                variant="outlined"
                               />
-                            )}
-                          </Box>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell align="right">
                           <Typography

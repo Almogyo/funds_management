@@ -99,10 +99,11 @@ export class App {
     const credentialService = new CredentialService(this.config.security.encryptionKey);
     const analyticsService = new AnalyticsService(this.logger, transactionRepo, accountRepo);
     const scraperService = new ScraperService(this.logger, this.config.scraping.screenshotPath);
+    const categoryScoreRepo = new CategoryScoreRepository(db, this.logger);
     const categorizationService = new CategorizationService(
       categoryRepo,
       transactionRepo,
-      new CategoryScoreRepository(db, this.logger),
+      categoryScoreRepo,
       this.logger
     );
     const transactionService = new TransactionService(
@@ -119,6 +120,7 @@ export class App {
       transactionRepo,
       transactionService,
       categoryRepo,
+      categoryScoreRepo,
       this.logger
     );
 
@@ -181,6 +183,7 @@ export class App {
     this.app.get('/api/transactions', authMiddleware, transactionController.getTransactions);
     this.app.get('/api/transactions/:id', authMiddleware, transactionController.getTransaction);
     this.app.post('/api/transactions/:id/set-main-category', authMiddleware, transactionController.setMainCategory);
+    this.app.put('/api/transactions/:id/category', authMiddleware, transactionController.setMainCategory);
 
     this.app.get('/api/analytics/summary', authMiddleware, analyticsController.getSummary);
     this.app.get(

@@ -16,7 +16,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Sync as SyncIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Sync as SyncIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import type { Account } from '../types';
 import { apiClient } from '../services/api';
 import { AddAccountDialog } from '../components/Accounts/AddAccountDialog';
@@ -24,7 +24,7 @@ import { EditAccountDialog } from '../components/Accounts/EditAccountDialog';
 import { DeleteAccountDialog } from '../components/Accounts/DeleteAccountDialog';
 import { ScrapeDialog } from '../components/Accounts/ScrapeDialog';
 import { getCompanyIcon, getCompanyName, getAccountType } from '../utils/companyIcons';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatDateTime } from '../utils/dateUtils';
 
 export const Accounts: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -36,6 +36,7 @@ export const Accounts: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [scrapeDialogOpen, setScrapeDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [scrapeAccountIds, setScrapeAccountIds] = useState<string[] | undefined>(undefined);
 
   useEffect(() => {
     fetchAccounts();
@@ -67,6 +68,11 @@ export const Accounts: React.FC = () => {
   const handleDelete = (account: Account) => {
     setSelectedAccount(account);
     setDeleteDialogOpen(true);
+  };
+
+  const handleScrapeAccount = (account: Account) => {
+    setScrapeAccountIds([account.id]);
+    setScrapeDialogOpen(true);
   };
 
   if (loading) {
@@ -125,8 +131,13 @@ export const Accounts: React.FC = () => {
                     <TableCell>Institution</TableCell>
                     <TableCell>Alias</TableCell>
                     <TableCell>Account Number</TableCell>
+                    {accounts.some(a => a.accountType === 'credit' && a.card6Digits) && (
+                      <TableCell>Card (Last 6)</TableCell>
+                    )}
                     <TableCell>Status</TableCell>
                     <TableCell>Last Scraped</TableCell>
+                    <TableCell>Created</TableCell>
+                    <TableCell>Updated</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -137,6 +148,13 @@ export const Accounts: React.FC = () => {
                       <TableCell>{getCompanyName(account.companyId)}</TableCell>
                       <TableCell>{account.alias}</TableCell>
                       <TableCell>{account.accountNumber}</TableCell>
+                      {accounts.some(a => a.accountType === 'credit' && a.card6Digits) && (
+                        <TableCell>
+                          {account.accountType === 'credit' && account.card6Digits 
+                            ? `****${account.card6Digits}` 
+                            : '-'}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Chip
                           label={account.active ? 'Active' : 'Inactive'}
@@ -147,14 +165,29 @@ export const Accounts: React.FC = () => {
                       <TableCell>
                         {account.lastScrapedAt ? formatDate(account.lastScrapedAt) : 'Never'}
                       </TableCell>
+                      <TableCell>
+                        {account.createdAt ? formatDateTime(account.createdAt) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {account.updatedAt ? formatDateTime(account.updatedAt) : '-'}
+                      </TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" onClick={() => handleEdit(account)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleScrapeAccount(account)}
+                          title="Scrape this account"
+                          color="primary"
+                        >
+                          <RefreshIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleEdit(account)} title="Edit account">
                           <EditIcon />
                         </IconButton>
                         <IconButton
                           size="small"
                           color="error"
                           onClick={() => handleDelete(account)}
+                          title="Delete account"
                         >
                           <DeleteIcon />
                         </IconButton>
@@ -196,8 +229,12 @@ export const Accounts: React.FC = () => {
 
       <ScrapeDialog
         open={scrapeDialogOpen}
-        onClose={() => setScrapeDialogOpen(false)}
+        onClose={() => {
+          setScrapeDialogOpen(false);
+          setScrapeAccountIds(undefined);
+        }}
         onScrapeComplete={fetchAccounts}
+        accountIds={scrapeAccountIds}
       />
     </Box>
   );

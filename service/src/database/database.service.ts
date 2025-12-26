@@ -207,15 +207,16 @@ export class DatabaseService {
     this.db.exec('VACUUM');
   }
 
-  public backup(backupPath: string): void {
+  public async backup(backupPath: string): Promise<Database.BackupMetadata> {
     this.ensureDirectoryExists(backupPath);
-    this.db.backup(backupPath);
+    return await this.db.backup(backupPath);
   }
 
   private runMigrations(): void {
     const accountColumns = this.db.pragma("table_info('accounts')") as any[];
     const hasAccountType = accountColumns.some((col) => col.name === 'account_type');
     const hasLastScrapedAt = accountColumns.some((col) => col.name === 'last_scraped_at');
+    const hasCard6Digits = accountColumns.some((col) => col.name === 'card_6_digits');
 
     if (!hasAccountType) {
       this.db.exec(`
@@ -235,6 +236,12 @@ export class DatabaseService {
       `);
     }
 
+    if (!hasCard6Digits) {
+      this.db.exec(`
+        ALTER TABLE accounts ADD COLUMN card_6_digits TEXT;
+      `);
+    }
+
     // Add is_main column to transaction_categories table for supporting main category concept
     const transactionCategoryColumns = this.db.pragma("table_info('transaction_categories')") as any[];
     const hasIsMain = transactionCategoryColumns.some((col) => col.name === 'is_main');
@@ -248,10 +255,24 @@ export class DatabaseService {
     // Add main_category_id column to transactions table to store category ID (not name)
     const transactionColumns = this.db.pragma("table_info('transactions')") as any[];
     const hasMainCategoryId = transactionColumns.some((col) => col.name === 'main_category_id');
+    const hasEnrichmentData = transactionColumns.some((col) => col.name === 'enrichment_data');
+    const hasEnrichedAt = transactionColumns.some((col) => col.name === 'enriched_at');
 
     if (!hasMainCategoryId) {
       this.db.exec(`
         ALTER TABLE transactions ADD COLUMN main_category_id TEXT;
+      `);
+    }
+
+    if (!hasEnrichmentData) {
+      this.db.exec(`
+        ALTER TABLE transactions ADD COLUMN enrichment_data TEXT;
+      `);
+    }
+
+    if (!hasEnrichedAt) {
+      this.db.exec(`
+        ALTER TABLE transactions ADD COLUMN enriched_at TEXT;
       `);
     }
   }
