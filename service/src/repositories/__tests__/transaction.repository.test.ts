@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import Database from 'better-sqlite3';
 import { DatabaseService } from '../../database/database.service';
 import { TransactionRepository } from '../transaction.repository';
 import { TransactionCategoryRepository } from '../transaction-category.repository';
@@ -10,34 +11,74 @@ import { UserRepository } from '../user.repository';
 describe('TransactionRepository - getTotalsByCategory', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'transaction-repo-test.db');
   let dbService: DatabaseService;
+  let db: Database.Database;
   let transactionRepo: TransactionRepository;
   let transactionCategoryRepo: TransactionCategoryRepository;
   let categoryRepo: CategoryRepository;
   let accountRepo: AccountRepository;
+  let userRepo: UserRepository;
   let testAccountId: string;
   let categoryGroceryId: string;
   let categoryRestaurantId: string;
   let categoryUtilitiesId: string;
 
-  beforeEach(() => {
+  // Setup: Create database and repositories once before all tests
+  beforeAll(() => {
     const dir = path.dirname(testDbPath);
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
+    
+    // Ensure test directory exists
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+    
+    // Remove existing database file if it exists (from previous test run)
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore errors - file might be locked or not exist
+      }
+    }
 
+    // Create fresh database instance
     dbService = new DatabaseService(testDbPath);
-    const db = dbService.getDatabase();
+    db = dbService.getDatabase();
 
-    const userRepo = new UserRepository(db);
+    // Initialize repositories
+    userRepo = new UserRepository(db);
     accountRepo = new AccountRepository(db);
     categoryRepo = new CategoryRepository(db);
     transactionCategoryRepo = new TransactionCategoryRepository(db);
     transactionRepo = new TransactionRepository(db, transactionCategoryRepo);
+  });
 
-    // Create test user first
+  // Cleanup: Close database and remove test files after all tests
+  afterAll(() => {
+    if (db) {
+      db.close();
+    }
+    
+    // Clean up test database file
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    }
+  });
+
+  // Before each test: Clear all data and recreate test fixtures
+  beforeEach(() => {
+    // Clear all tables (cascade deletes will handle relationships)
+    db.exec('DELETE FROM transaction_categories');
+    db.exec('DELETE FROM transactions');
+    db.exec('DELETE FROM categories');
+    db.exec('DELETE FROM accounts');
+    db.exec('DELETE FROM credentials');
+    db.exec('DELETE FROM users');
+
+    // Recreate test fixtures for each test
     const user = userRepo.create('testuser', 'password-hash');
     const testUserId = user.id;
 
@@ -54,25 +95,6 @@ describe('TransactionRepository - getTotalsByCategory', () => {
 
     const utilitiesCategory = categoryRepo.create('Utilities', null, ['electric', 'water']);
     categoryUtilitiesId = utilitiesCategory.id;
-  });
-
-  afterEach(() => {
-    dbService.close();
-    const dir = path.dirname(testDbPath);
-    if (fs.existsSync(dir)) {
-      try {
-        const files = fs.readdirSync(dir);
-        files.forEach((file) => {
-          const filePath = path.join(dir, file);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        });
-        fs.rmdirSync(dir);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
   });
 
   describe('getTotalsByCategory', () => {
@@ -283,8 +305,9 @@ describe('TransactionRepository - getTotalsByCategory', () => {
     });
 
     it('should return empty array when no expenses found', () => {
-      // Create account with no transactions
-      const emptyAccount = accountRepo.create('test-user', '99999', 'hapoalim', 'Empty Account');
+      // Create user and account with no transactions
+      const user = userRepo.create('test-user-empty', 'password-hash');
+      const emptyAccount = accountRepo.create(user.id, '99999', 'hapoalim', 'Empty Account');
 
       const result = transactionRepo.getTotalsByCategory(
         [emptyAccount.id],
@@ -296,8 +319,9 @@ describe('TransactionRepository - getTotalsByCategory', () => {
     });
 
     it('should handle multiple accounts correctly', () => {
-      // Create second account
-      const account2 = accountRepo.create('test-user', '54321', 'leumi', 'Account 2');
+      // Create second user and account
+      const user2 = userRepo.create('test-user-2', 'password-hash');
+      const account2 = accountRepo.create(user2.id, '54321', 'leumi', 'Account 2');
 
       // Create transactions in different accounts
       const txn1 = transactionRepo.create(

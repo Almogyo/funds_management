@@ -1,50 +1,59 @@
 import path from 'path';
 import fs from 'fs';
+import Database from 'better-sqlite3';
 import { DatabaseService } from '../../database/database.service';
 import { TransactionRepository } from '../../repositories/transaction.repository';
 import { TransactionCategoryRepository } from '../../repositories/transaction-category.repository';
 import { CategoryRepository } from '../../repositories/category.repository';
 import { AccountRepository } from '../../repositories/account.repository';
 import { UserRepository } from '../../repositories/user.repository';
-import { AnalyticsService } from '../../services/analytics.service';
-import { Logger } from '../../utils/logger';
 
 describe('AnalyticsController - Category Distribution (Pie Chart)', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'analytics-controller-test.db');
   let dbService: DatabaseService;
+  let db: Database.Database;
   let transactionRepo: TransactionRepository;
   let transactionCategoryRepo: TransactionCategoryRepository;
   let categoryRepo: CategoryRepository;
   let accountRepo: AccountRepository;
-  let analyticsService: AnalyticsService;
-  let logger: Logger;
   let testAccountId: string;
   let categoryGroceryId: string;
   let categoryRestaurantId: string;
 
   beforeEach(() => {
     const dir = path.dirname(testDbPath);
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
+    
+    // Ensure directory exists first (before any file operations)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+    
+    // Remove existing database file if it exists
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore errors when deleting (file might not exist or be locked)
+      }
+    }
+    
+    // Ensure directory still exists after cleanup (in case it was removed)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // Verify directory exists before creating DatabaseService
+    if (!fs.existsSync(dir)) {
+      throw new Error(`Failed to create test directory: ${dir}`);
+    }
 
     dbService = new DatabaseService(testDbPath);
-    const db = dbService.getDatabase();
+    db = dbService.getDatabase();
 
     accountRepo = new AccountRepository(db);
     categoryRepo = new CategoryRepository(db);
     transactionCategoryRepo = new TransactionCategoryRepository(db);
     transactionRepo = new TransactionRepository(db, transactionCategoryRepo);
-    logger = new Logger({
-      level: 'error',
-      filePath: path.join(process.cwd(), 'test-data'),
-      console: false,
-      file: false,
-    });
-    analyticsService = new AnalyticsService(logger, transactionRepo, accountRepo);
 
     // Create test user first
     const userRepo = new UserRepository(db);
@@ -64,7 +73,9 @@ describe('AnalyticsController - Category Distribution (Pie Chart)', () => {
   });
 
   afterEach(() => {
-    dbService.close();
+    if (db) {
+      db.close();
+    }
     const dir = path.dirname(testDbPath);
     if (fs.existsSync(dir)) {
       try {

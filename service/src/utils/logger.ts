@@ -74,6 +74,15 @@ export class Logger {
       );
     }
 
+    // If no transports are configured, add a silent transport to prevent Winston warnings
+    if (transports.length === 0) {
+      transports.push(
+        new winston.transports.Console({
+          silent: true, // Silent transport that discards all logs
+        })
+      );
+    }
+
     return winston.createLogger({
       level: this.config.level,
       transports,

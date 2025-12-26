@@ -5,32 +5,53 @@ import path from 'path';
 describe('DatabaseService', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'test.db');
 
-  beforeEach(() => {
+  // Setup: Create test directory once before all tests
+  beforeAll(() => {
     const dir = path.dirname(testDbPath);
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
+    
+    // Ensure test directory exists
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+    
+    // Remove existing database file if it exists (from previous test run)
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore errors - file might be locked or not exist
+      }
+    }
   });
 
-  afterEach(() => {
-    const dir = path.dirname(testDbPath);
-    if (fs.existsSync(dir)) {
+  // Cleanup: Remove test database file after all tests
+  afterAll(() => {
+    // Clean up test database file
+    if (fs.existsSync(testDbPath)) {
       try {
-        const files = fs.readdirSync(dir);
-        files.forEach((file) => {
-          const filePath = path.join(dir, file);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        });
-        fs.rmdirSync(dir);
+        fs.unlinkSync(testDbPath);
       } catch (error) {
         // Ignore cleanup errors
       }
     }
+  });
+
+  // Before each test: Ensure clean state (delete database file if exists)
+  beforeEach(() => {
+    // Remove existing database file to ensure fresh start for each test
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore errors - file might be locked
+      }
+    }
+  });
+
+  // After each test: Clean up any open database connections
+  afterEach(() => {
+    // Database files are cleaned up in beforeEach for next test
+    // Individual tests handle closing their own DatabaseService instances
   });
 
   describe('constructor', () => {
@@ -162,18 +183,24 @@ describe('DatabaseService', () => {
 
       // Use better-sqlite3 backup method properly
       const backupResult = await dbService.backup(backupPath);
-      const success = backupResult.pages > 0;
+      // BackupMetadata has totalPages and remainingPages properties
+      const success = backupResult.totalPages > 0;
 
       expect(fs.existsSync(backupPath) || success).toBe(true);
 
       dbService.close();
 
+      // Clean up backup directory
       if (fs.existsSync(backupDir)) {
-        const files = fs.readdirSync(backupDir);
-        files.forEach((file) => {
-          fs.unlinkSync(path.join(backupDir, file));
-        });
-        fs.rmdirSync(backupDir);
+        try {
+          const files = fs.readdirSync(backupDir);
+          files.forEach((file) => {
+            fs.unlinkSync(path.join(backupDir, file));
+          });
+          fs.rmdirSync(backupDir);
+        } catch (error) {
+          // Ignore cleanup errors
+        }
       }
     });
   });

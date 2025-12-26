@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3';
 import { DatabaseService } from '../../database/database.service';
 import { UserRepository } from '../user.repository';
 import fs from 'fs';
@@ -6,38 +7,53 @@ import path from 'path';
 describe('UserRepository', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'user-repo-test.db');
   let dbService: DatabaseService;
+  let db: Database.Database;
   let userRepo: UserRepository;
 
-  beforeEach(() => {
+  // Setup: Create database once before all tests
+  beforeAll(() => {
     const dir = path.dirname(testDbPath);
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
+    
+    // Ensure test directory exists
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+    
+    // Remove existing database file if it exists (from previous test run)
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore errors - file might be locked or not exist
+      }
+    }
 
+    // Create fresh database instance
     dbService = new DatabaseService(testDbPath);
-    userRepo = new UserRepository(dbService.getDatabase());
+    db = dbService.getDatabase();
+    userRepo = new UserRepository(db);
   });
 
-  afterEach(() => {
-    dbService.close();
-    const dir = path.dirname(testDbPath);
-    if (fs.existsSync(dir)) {
+  // Cleanup: Close database and remove test files after all tests
+  afterAll(() => {
+    if (db) {
+      db.close();
+    }
+    
+    // Clean up test database file
+    if (fs.existsSync(testDbPath)) {
       try {
-        const files = fs.readdirSync(dir);
-        files.forEach((file) => {
-          const filePath = path.join(dir, file);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        });
-        fs.rmdirSync(dir);
+        fs.unlinkSync(testDbPath);
       } catch (error) {
         // Ignore cleanup errors
       }
     }
+  });
+
+  // Before each test: Clear all data to ensure test isolation
+  beforeEach(() => {
+    // Delete all users (cascades to related tables)
+    db.exec('DELETE FROM users');
   });
 
   describe('create', () => {
