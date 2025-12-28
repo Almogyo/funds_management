@@ -7,6 +7,7 @@ import { Logger } from '../utils/logger';
 import { AccountRepository } from '../repositories/account.repository';
 import { CredentialRepository } from '../repositories/credential.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import { TransactionCategoryRepository } from '../repositories/transaction-category.repository';
 import { CategoryRepository } from '../repositories/category.repository';
 import { CategoryScoreRepository } from '../repositories/category-score.repository';
 import { randomUUID } from 'crypto';
@@ -45,6 +46,7 @@ export class ScraperOrchestratorService {
     private transactionService: TransactionService,
     private categoryRepository: CategoryRepository,
     private categoryScoreRepository: CategoryScoreRepository,
+    private transactionCategoryRepository: TransactionCategoryRepository,
     private logger: Logger
   ) {
     this.transactionProcessor = new TransactionProcessorService(this.logger);
@@ -52,6 +54,7 @@ export class ScraperOrchestratorService {
       this.categoryRepository,
       this.transactionRepository,
       this.categoryScoreRepository,
+      this.transactionCategoryRepository,
       this.logger
     );
   }

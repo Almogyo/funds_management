@@ -17,6 +17,7 @@ export interface HighestExpense {
 
 export interface RecurringPayment {
   merchantName: string;
+  category: string;
   amount: number;
   currency: string;
   frequency: number;
@@ -124,26 +125,41 @@ export class AnalyticsService {
 
     const expenses = transactions.filter((t) => t.amount < 0);
 
-    const merchantGroups = new Map<string, Transaction[]>();
+    // Group by exact description AND exact amount (not normalized)
+    // Key format: "description|amount" to ensure exact matches
+    const transactionGroups = new Map<string, Transaction[]>();
 
     for (const txn of expenses) {
-      const normalizedMerchant = this.normalizeMerchantName(txn.description);
-      const existing = merchantGroups.get(normalizedMerchant) || [];
+      // Use exact description and exact amount as the key
+      const key = `${txn.description}|${Math.abs(txn.amount)}`;
+      const existing = transactionGroups.get(key) || [];
       existing.push(txn);
-      merchantGroups.set(normalizedMerchant, existing);
+      transactionGroups.set(key, existing);
     }
 
     const recurring: RecurringPayment[] = [];
 
-    for (const [merchant, txns] of merchantGroups.entries()) {
+    for (const [_key, txns] of transactionGroups.entries()) {
+      // Only include if there are 2+ transactions with exact same description and amount
       if (txns.length >= 2) {
-        const amounts = txns.map((t) => Math.abs(t.amount));
-        const avgAmount = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
+        const amount = Math.abs(txns[0].amount); // All amounts are the same, so use first one
         const lastTxn = txns.reduce((latest, t) => (t.date > latest.date ? t : latest));
+        
+        // Get the main category from the transactions
+        // Try to find a transaction with a main category
+        let categoryName = 'Uncategorized';
+        for (const txn of txns) {
+          const mainCategory = txn.categories.find((cat) => cat.isMain);
+          if (mainCategory) {
+            categoryName = mainCategory.categoryName;
+            break;
+          }
+        }
 
         recurring.push({
-          merchantName: merchant,
-          amount: avgAmount,
+          merchantName: txns[0].description, // Use exact description
+          category: categoryName,
+          amount: amount,
           currency: txns[0].currency,
           frequency: txns.length,
           lastPaymentDate: lastTxn.date,
@@ -313,14 +329,6 @@ export class AnalyticsService {
     return summary;
   }
 
-  private normalizeMerchantName(description: string): string {
-    return description
-      .toLowerCase()
-      .replace(/[0-9]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .substring(0, 50);
-  }
 
   private getPeriodKey(date: Date, granularity: 'daily' | 'monthly'): string {
     if (granularity === 'daily') {

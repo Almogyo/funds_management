@@ -151,8 +151,8 @@ export class DatabaseService {
         decision_reason TEXT,
         calculated_at TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        FOREIGN KEY (transaction_id) REFERENCES transactions(id),
-        FOREIGN KEY (account_id) REFERENCES accounts(id)
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+        FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS category_overrides (

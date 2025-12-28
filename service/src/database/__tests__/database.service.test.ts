@@ -4,17 +4,16 @@ import path from 'path';
 
 describe('DatabaseService', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'test.db');
+  const testDir = path.dirname(testDbPath);
 
   // Setup: Create test directory once before all tests
   beforeAll(() => {
-    const dir = path.dirname(testDbPath);
-    
-    // Ensure test directory exists
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    // Ensure test directory exists once before all tests
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true });
     }
     
-    // Remove existing database file if it exists (from previous test run)
+    // Clean up any leftover db file from previous runs
     if (fs.existsSync(testDbPath)) {
       try {
         fs.unlinkSync(testDbPath);
@@ -24,12 +23,25 @@ describe('DatabaseService', () => {
     }
   });
 
-  // Cleanup: Remove test database file after all tests
+  // Cleanup: Remove test database file and directory after all tests
   afterAll(() => {
     // Clean up test database file
     if (fs.existsSync(testDbPath)) {
       try {
         fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    // Clean up test directory if it exists and is empty
+    if (fs.existsSync(testDir)) {
+      try {
+        const files = fs.readdirSync(testDir);
+        // Only remove directory if it's empty (or only contains our test file)
+        if (files.length === 0 || (files.length === 1 && files[0] === path.basename(testDbPath))) {
+          fs.rmdirSync(testDir);
+        }
       } catch (error) {
         // Ignore cleanup errors
       }

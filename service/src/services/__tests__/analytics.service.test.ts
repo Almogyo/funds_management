@@ -11,6 +11,7 @@ import { UserRepository } from '../../repositories/user.repository';
 
 describe('AnalyticsService - Expense Trends and Profit Calculation', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'analytics-trends-test.db');
+  const testDir = path.dirname(testDbPath);
   let dbService: DatabaseService;
   let db: Database.Database;
   let logger: Logger;
@@ -23,14 +24,17 @@ describe('AnalyticsService - Expense Trends and Profit Calculation', () => {
 
   // Setup: Create database and services once before all tests
   beforeAll(() => {
-    const dir = path.dirname(testDbPath);
-    
-    // Ensure test directory exists
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    // Ensure test directory exists once before all tests
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true });
     }
     
-    // Remove existing database file if it exists (from previous test run)
+    // Verify directory was created successfully
+    if (!fs.existsSync(testDir)) {
+      throw new Error(`Failed to create test directory: ${testDir}`);
+    }
+    
+    // Clean up any leftover db file from previous runs
     if (fs.existsSync(testDbPath)) {
       try {
         fs.unlinkSync(testDbPath);
@@ -39,14 +43,14 @@ describe('AnalyticsService - Expense Trends and Profit Calculation', () => {
       }
     }
 
-    // Create fresh database instance
+    // Create fresh database instance (DatabaseService will also ensure directory exists)
     dbService = new DatabaseService(testDbPath);
     db = dbService.getDatabase();
 
     // Initialize logger
     logger = new Logger({
       level: 'error',
-      filePath: path.join(process.cwd(), 'test-data'),
+      filePath: testDir,
       console: false,
       file: false,
     });
@@ -69,6 +73,19 @@ describe('AnalyticsService - Expense Trends and Profit Calculation', () => {
     if (fs.existsSync(testDbPath)) {
       try {
         fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    // Clean up test directory if it exists and is empty
+    if (fs.existsSync(testDir)) {
+      try {
+        const files = fs.readdirSync(testDir);
+        // Only remove directory if it's empty (we already deleted the test file above)
+        if (files.length === 0) {
+          fs.rmdirSync(testDir);
+        }
       } catch (error) {
         // Ignore cleanup errors
       }

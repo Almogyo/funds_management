@@ -100,6 +100,18 @@ export class CredentialRepository {
     stmt.run(encryptedData, iv, salt, updatedAt, id);
   }
 
+  updateAccountName(id: string, newAccountName: string): void {
+    const updatedAt = Date.now();
+
+    const stmt = this.db.prepare(`
+      UPDATE credentials
+      SET account_name = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(newAccountName, updatedAt, id);
+  }
+
   delete(id: string): void {
     const stmt = this.db.prepare(`
       DELETE FROM credentials WHERE id = ?

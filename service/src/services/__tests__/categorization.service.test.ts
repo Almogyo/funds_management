@@ -55,7 +55,7 @@ describe('CategorizationService', () => {
     const transactionCategoryRepo = new TransactionCategoryRepository(db);
     const transactionRepo = new TransactionRepository(db, transactionCategoryRepo);
     const categoryScoreRepo = new CategoryScoreRepository(db, logger);
-    categorizationService = new CategorizationService(categoryRepo, transactionRepo, categoryScoreRepo, logger);
+    categorizationService = new CategorizationService(categoryRepo, transactionRepo, categoryScoreRepo, transactionCategoryRepo, logger);
 
     // Create test user first
     const userRepo = new UserRepository(db);

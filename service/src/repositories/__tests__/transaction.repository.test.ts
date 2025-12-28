@@ -10,6 +10,7 @@ import { UserRepository } from '../user.repository';
 
 describe('TransactionRepository - getTotalsByCategory', () => {
   const testDbPath = path.join(process.cwd(), 'test-data', 'transaction-repo-test.db');
+  const testDir = path.dirname(testDbPath);
   let dbService: DatabaseService;
   let db: Database.Database;
   let transactionRepo: TransactionRepository;
@@ -24,14 +25,17 @@ describe('TransactionRepository - getTotalsByCategory', () => {
 
   // Setup: Create database and repositories once before all tests
   beforeAll(() => {
-    const dir = path.dirname(testDbPath);
-    
-    // Ensure test directory exists
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    // Ensure test directory exists once before all tests
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true });
     }
     
-    // Remove existing database file if it exists (from previous test run)
+    // Verify directory was created successfully
+    if (!fs.existsSync(testDir)) {
+      throw new Error(`Failed to create test directory: ${testDir}`);
+    }
+    
+    // Clean up any leftover db file from previous runs
     if (fs.existsSync(testDbPath)) {
       try {
         fs.unlinkSync(testDbPath);
@@ -40,7 +44,7 @@ describe('TransactionRepository - getTotalsByCategory', () => {
       }
     }
 
-    // Create fresh database instance
+    // Create fresh database instance (DatabaseService will also ensure directory exists)
     dbService = new DatabaseService(testDbPath);
     db = dbService.getDatabase();
 
@@ -62,6 +66,19 @@ describe('TransactionRepository - getTotalsByCategory', () => {
     if (fs.existsSync(testDbPath)) {
       try {
         fs.unlinkSync(testDbPath);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    // Clean up test directory if it exists and is empty
+    if (fs.existsSync(testDir)) {
+      try {
+        const files = fs.readdirSync(testDir);
+        // Only remove directory if it's empty (or only contains our test file)
+        if (files.length === 0 || (files.length === 1 && files[0] === path.basename(testDbPath))) {
+          fs.rmdirSync(testDir);
+        }
       } catch (error) {
         // Ignore cleanup errors
       }

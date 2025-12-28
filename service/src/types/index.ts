@@ -114,6 +114,7 @@ export interface RecurringPayment {
   currency: string;
   frequency: number;
   lastPaymentDate: Date;
+  transactionCount: number;
 }
 
 export interface ExpenseTrend {

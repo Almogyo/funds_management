@@ -200,4 +200,29 @@ export class CategoryScoreRepository {
     const stmt = this.db.prepare(sql);
     return stmt.all();
   }
+
+  /**
+   * Delete all category scores for an account.
+   * Used when deleting an account to clean up related data.
+   */
+  deleteByAccountId(accountId: string): void {
+    try {
+      const stmt = this.db.prepare(`
+        DELETE FROM category_scores
+        WHERE account_id = ?
+      `);
+
+      const result = stmt.run(accountId);
+      this.logger.debug('Deleted category scores for account', {
+        accountId,
+        deletedCount: result.changes || 0,
+      });
+    } catch (error) {
+      this.logger.error('Failed to delete category scores for account', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        accountId,
+      });
+      throw error;
+    }
+  }
 }

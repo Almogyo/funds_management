@@ -104,6 +104,7 @@ export class App {
       categoryRepo,
       transactionRepo,
       categoryScoreRepo,
+      transactionCategoryRepo,
       this.logger
     );
     const transactionService = new TransactionService(
@@ -121,6 +122,7 @@ export class App {
       transactionService,
       categoryRepo,
       categoryScoreRepo,
+      transactionCategoryRepo,
       this.logger
     );
 
@@ -129,6 +131,7 @@ export class App {
       accountRepo,
       credentialRepo,
       credentialService,
+      categoryScoreRepo,
       this.logger
     );
     const transactionController = new TransactionController(

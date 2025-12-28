@@ -1,6 +1,7 @@
 import { Logger } from '../utils/logger';
 import { CategoryRepository } from '../repositories/category.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import { TransactionCategoryRepository } from '../repositories/transaction-category.repository';
 import { CategoryScoreRepository } from '../repositories/category-score.repository';
 import { Transaction } from '../types';
 import {
@@ -43,6 +44,7 @@ export class CategorizationService {
     private categoryRepository: CategoryRepository,
     private transactionRepository?: TransactionRepository,
     private categoryScoreRepository?: CategoryScoreRepository,
+    private transactionCategoryRepository?: TransactionCategoryRepository,
     private logger?: Logger,
     config?: {
       descriptionThreshold?: number;
@@ -306,11 +308,92 @@ export class CategorizationService {
   }
 
   /**
-   * Backwards compatibility: recategorizeAll (for old code that calls this)
+   * Re-categorize all transactions based on current category keywords and fuzzy matching
+   * This is called when categories are created or updated
    */
   async recategorizeAll(): Promise<{ processed: number; updated: number }> {
-    this.logger?.info('Recategorization triggered (fuzzy matching enabled for new transactions)');
-    return { processed: 0, updated: 0 };
+    if (!this.transactionRepository) {
+      this.logger?.warn('TransactionRepository not available, skipping recategorization');
+      return { processed: 0, updated: 0 };
+    }
+
+    this.logger?.info('Starting re-categorization of all transactions');
+
+    // Get all transactions
+    const allTransactions = this.transactionRepository.findWithFilters({});
+    let processed = 0;
+    let updated = 0;
+
+    const unknownCategory = this.categoryRepository.findByName('Unknown');
+    const unknownCategoryId = unknownCategory?.id;
+
+    for (const transaction of allTransactions) {
+      processed++;
+
+      try {
+        // Re-evaluate the transaction using current categorization logic
+        const result = await this.categorizeTransactionAsync(transaction);
+        
+        if (!this.transactionCategoryRepository) {
+          continue;
+        }
+
+        // Get current categories for this transaction
+        const currentCategories = this.transactionCategoryRepository.getByTransactionId(transaction.id);
+        const hasOnlyUnknown = currentCategories.length === 1 && 
+                               unknownCategoryId && 
+                               currentCategories[0].categoryId === unknownCategoryId;
+        const hasManualCategories = currentCategories.some(cat => cat.isManual);
+
+        // If transaction matches a category (not unknown)
+        if (result.mainCategoryId && result.mainCategoryId !== 'unknown') {
+          const mainCategoryAlreadyAttached = currentCategories.some(
+            cat => cat.categoryId === result.mainCategoryId
+          );
+
+          // Case 1: Transaction only has Unknown category - remove it and set new category as main
+          if (hasOnlyUnknown) {
+            if (unknownCategoryId) {
+              this.transactionCategoryRepository.detach(transaction.id, unknownCategoryId);
+            }
+            // Attach the new category as main
+            this.transactionCategoryRepository.attach(transaction.id, result.mainCategoryId, false, true);
+            this.transactionRepository.setMainCategoryId(transaction.id, result.mainCategoryId);
+            updated++;
+            this.logger?.debug('Re-categorized transaction (removed Unknown)', {
+              transactionId: transaction.id,
+              oldCategory: 'Unknown',
+              newCategory: result.mainCategoryId,
+            });
+          }
+          // Case 2: Transaction has other categories but new category matches - attach if not already attached
+          else if (!mainCategoryAlreadyAttached && !hasManualCategories) {
+            // Only update if there are no manual categories (respect user's manual assignments)
+            // Attach the new category (but don't remove existing ones)
+            this.transactionCategoryRepository.attach(transaction.id, result.mainCategoryId, false, false);
+            // If no main category exists, set this as main
+            const hasMainCategory = currentCategories.some(cat => cat.isMain);
+            if (!hasMainCategory) {
+              this.transactionCategoryRepository.setAsMain(transaction.id, result.mainCategoryId);
+              this.transactionRepository.setMainCategoryId(transaction.id, result.mainCategoryId);
+            }
+            updated++;
+            this.logger?.debug('Re-categorized transaction (added new match)', {
+              transactionId: transaction.id,
+              newCategory: result.mainCategoryId,
+            });
+          }
+        }
+      } catch (error) {
+        this.logger?.error('Error re-categorizing transaction', {
+          transactionId: transaction.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    this.logger?.info('Re-categorization completed', { processed, updated });
+    return { processed, updated };
   }
 }
 

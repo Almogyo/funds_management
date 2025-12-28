@@ -65,10 +65,36 @@ export class ScraperService {
   ): Promise<ScraperResult> {
     const startTime = Date.now();
 
+    // For Isracard/Amex, limit date range to avoid rate limits (429 errors)
+    // Isracard API blocks automation when too many requests are made
+    // Limit to 6 months maximum to avoid hitting rate limits
+    const isIsracardOrAmex = ['isracard', 'amex'].includes(companyId);
+    const maxMonthsForIsracard = 6;
+    
+    let effectiveStartDate = options.startDate;
+    let effectiveEndDate = options.endDate || new Date();
+    
+    if (isIsracardOrAmex && options.endDate) {
+      const monthsDiff = this.calculateMonthsDifference(options.startDate, options.endDate);
+      if (monthsDiff > maxMonthsForIsracard) {
+        // Limit to last 6 months
+        effectiveStartDate = new Date(effectiveEndDate);
+        effectiveStartDate.setMonth(effectiveStartDate.getMonth() - maxMonthsForIsracard);
+        this.logger.scraperLog(`Date range limited for Isracard/Amex to avoid rate limits`, accountName, {
+          originalStartDate: options.startDate.toISOString(),
+          limitedStartDate: effectiveStartDate.toISOString(),
+          endDate: effectiveEndDate.toISOString(),
+          monthsRequested: monthsDiff,
+          monthsLimited: maxMonthsForIsracard,
+        });
+      }
+    }
+
     this.logger.scraperLog(`Starting scrape`, accountName, {
       companyId,
-      startDate: options.startDate.toISOString(),
-      endDate: options.endDate?.toISOString(),
+      startDate: effectiveStartDate.toISOString(),
+      endDate: effectiveEndDate.toISOString(),
+      isIsracardOrAmex,
     });
 
     try {
@@ -80,7 +106,7 @@ export class ScraperService {
       
       const scraperOptions: any = {
         companyId: this.getCompanyType(companyId),
-        startDate: options.startDate,
+        startDate: effectiveStartDate,
         futureMonthsToScrape: options.futureMonths || 0,
         combineInstallments: options.combineInstallments || false,
         timeout: options.timeout || defaultTimeout,
@@ -200,12 +226,23 @@ export class ScraperService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Check for rate limit errors (429) from Isracard API
+      if (errorMessage.includes('429') || errorMessage.includes('Block Automation') || errorMessage.toLowerCase().includes('rate limit')) {
+        const isIsracardOrAmex = ['isracard', 'amex'].includes(companyId);
+        if (isIsracardOrAmex) {
+          errorMessage = `Isracard API rate limit exceeded. The API blocks automation when too many requests are made. Please try again later or reduce the date range (maximum 6 months recommended). Original error: ${errorMessage}`;
+        } else {
+          errorMessage = `Rate limit exceeded. Please try again later. Original error: ${errorMessage}`;
+        }
+      }
 
       this.logger.scraperLog(`Scraping failed with exception`, accountName, {
         companyId,
         error: errorMessage,
         duration: `${duration}ms`,
+        isRateLimit: errorMessage.includes('rate limit') || errorMessage.includes('429'),
       });
 
       let screenshotPath: string | undefined;
@@ -250,6 +287,16 @@ export class ScraperService {
     };
 
     return mapping[companyId] || CompanyTypes.leumi;
+  }
+
+  /**
+   * Calculate the number of months between two dates
+   */
+  private calculateMonthsDifference(startDate: Date, endDate: Date): number {
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    return Math.max(0, monthsDiff);
   }
 
   async scrapeMultiple(
