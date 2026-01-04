@@ -171,7 +171,14 @@ class ApiClient {
 
   async updateAccount(
     id: string,
-    updates: { alias?: string; active?: boolean }
+    updates: { 
+      alias?: string; 
+      active?: boolean;
+      username?: string;
+      password?: string;
+      card6Digits?: string;
+      userIdNumber?: string;
+    }
   ): Promise<void> {
     await this.client.put(`/api/accounts/${id}`, updates);
   }

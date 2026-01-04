@@ -14,6 +14,8 @@ export interface Account {
   active: boolean;
   accountType: 'bank' | 'credit';
   card6Digits?: string | null;
+  username?: string; // For display in edit dialog (never includes password)
+  userIdNumber?: string; // For Isracard user identification number (for display in edit dialog)
   lastScrapedAt?: number;
   createdAt: number;
   updatedAt?: number;

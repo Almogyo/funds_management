@@ -134,7 +134,7 @@ export const ScrapeDialog: React.FC<ScrapeDialogProps> = ({
             <Alert severity="info" sx={{ mb: 2 }}>
               {range === 'last_month'
                 ? 'Fetches transactions from the last 30 days. Quick and reliable.'
-                : 'Fetches up to 365 days of history. May take longer and could hit provider limits.'}
+                : 'Fetches up to 365 days of history. May take longer. Note: Isracard/Amex accounts are limited to 6 months maximum to avoid rate limits.'}
             </Alert>
           </>
         )}
